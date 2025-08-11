@@ -49,7 +49,7 @@ setup_multimedia_and_java() {
       https://download1.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-$(rpm -E %fedora).noarch.rpm
 
     echo "Atualizando o grupo de pacotes 'core'..."
-    sudo dnf group upgrade -y --skip-broken core
+    sudo dnf group upgrade -y core
 
     echo "Instalando Java, pacotes multimídia e codecs..."
     # Instala o grupo multimídia e outros pacotes de uma vez.
