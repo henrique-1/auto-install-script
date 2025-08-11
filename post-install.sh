@@ -57,7 +57,9 @@ setup_multimedia_and_java() {
     sudo dnf install -y \
       java-latest-openjdk.x86_64 \
       gstreamer1-plugin-openh264 \
-      mozilla-openh264
+      mozilla-openh264 \
+      dnf5-plugins \
+      dnf-plugins-core
 }
 
 # 3. Instala o Oh My Bash
@@ -101,20 +103,20 @@ install_dev_tools() {
 
     # --- Adiciona repositórios de terceiros ---
     echo "Adicionando repositório do GitHub CLI..."
-    sudo dnf config-manager --add-repo https://cli.github.com/packages/rpm/gh-cli.repo
+    sudo dnf config-manager addrepo --from-repofile=https://cli.github.com/packages/rpm/gh-cli.repo
 
     echo "Adicionando repositório do Visual Studio Code..."
     sudo rpm --import https://packages.microsoft.com/keys/microsoft.asc
     echo -e "[code]\nname=Visual Studio Code\nbaseurl=https://packages.microsoft.com/yumrepos/vscode\nenabled=1\ngpgcheck=1\ngpgkey=https://packages.microsoft.com/keys/microsoft.asc" | sudo tee /etc/yum.repos.d/vscode.repo > /dev/null
 
     echo "Adicionando repositório do Docker..."
-    sudo dnf config-manager --add-repo https://download.docker.com/linux/fedora/docker-ce.repo
+    sudo dnf-3 config-manager --add-repo https://download.docker.com/linux/fedora/docker-ce.repo
 
     # --- Instala pacotes via DNF ---
     echo "Instalando pacotes: gh, code, podman, docker e dependências..."
     sudo dnf install -y \
       gh code podman podman-machine docker-ce docker-ce-cli containerd.io \
-      docker-buildx-plugin docker-compose-plugin dnf-plugins-core
+      docker-buildx-plugin docker-compose-plugin
 }
 
 # 6. Instala NVM, Node.js, PHP e Composer
