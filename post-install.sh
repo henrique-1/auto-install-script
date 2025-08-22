@@ -339,8 +339,8 @@ configure_docker() {
     sudo usermod -aG docker "$USER"
     
     echo "Baixando e instalando o Docker Desktop..."
-    DOCKER_DESKTOP_URL="https://desktop.docker.com/linux/main/amd64/docker-desktop-x86_64.rpm"
-    DOCKER_DESKTOP_RPM="$HOME/Downloads/docker-desktop.rpm"
+    local DOCKER_DESKTOP_URL="https://desktop.docker.com/linux/main/amd64/docker-desktop-x86_64.rpm"
+    local DOCKER_DESKTOP_RPM="$HOME/Downloads/docker-desktop.rpm"
     curl -L "$DOCKER_DESKTOP_URL" -o "$DOCKER_DESKTOP_RPM"
     sudo dnf install -y "$DOCKER_DESKTOP_RPM"
     rm "$DOCKER_DESKTOP_RPM"
@@ -425,7 +425,7 @@ configure_mariadb_pod() {
     CREATE USER 'pma'@'::1' IDENTIFIED BY '$PMA_PASSWORD'; GRANT ALL PRIVILEGES ON phpmyadmin_config_db.* TO 'pma'@'::1';
     FLUSH PRIVILEGES;"
     echo "podman exec $DB_CONTAINER_NAME mariadb -u root -p$ROOT_PASSWORD -e $SQL_COMMAND"
-    # podman exec $DB_CONTAINER_NAME mariadb -u root -p $ROOT_PASSWORD -e $SQL_COMMAND"
+    podman exec -it "$DB_CONTAINER_NAME" mariadb -u root -p"$ROOT_PASSWORD" -e "$SQL_COMMAND""
 
     echo "Iniciando o contêiner do phpMyAdmin ('$PMA_CONTAINER_NAME')..."
     podman run -d --name "$PMA_CONTAINER_NAME" --pod "$POD_NAME" \
