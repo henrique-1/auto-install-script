@@ -280,39 +280,55 @@ install_flutter_and_jetbrains() {
       pkg-config dbus-devel inih-devel fuse fuse-libs gtk3-devel egl-utils
 
     # --- Cria diretórios de trabalho ---
-    DEV_DIR="$HOME/development"
-    DOWNLOAD_DIR="$HOME/Downloads"
+    local DEV_DIR="$HOME/development"
+    local DOWNLOAD_DIR="$HOME/Downloads"
     mkdir -p "$DEV_DIR" "$DOWNLOAD_DIR"
 
     # --- Instala Flutter ---
-    echo "Baixando o Flutter SDK..."
-    FLUTTER_URL="https://storage.googleapis.com/flutter_infra_release/releases/stable/linux/flutter_linux_3.22.2-stable.tar.xz"
-    FLUTTER_ARCHIVE="$DOWNLOAD_DIR/flutter.tar.xz"
-    curl -L "$FLUTTER_URL" -o "$FLUTTER_ARCHIVE"
-    echo "Extraindo o Flutter para $DEV_DIR..."
-    tar -xf "$FLUTTER_ARCHIVE" -C "$DEV_DIR"
+    local FLUTTER_DIR="$DEV_DIR/flutter"
+    if [ ! -d "$FLUTTER_DIR" ]; then
+        echo "Baixando o Flutter SDK..."
+        FLUTTER_URL="https://storage.googleapis.com/flutter_infra_release/releases/stable/linux/flutter_linux_3.22.2-stable.tar.xz"
+        FLUTTER_ARCHIVE="$DOWNLOAD_DIR/flutter.tar.xz"
+    
+        curl -L "$FLUTTER_URL" -o "$FLUTTER_ARCHIVE"
+        echo "Extraindo o Flutter para $DEV_DIR..."
+        tar -xf "$FLUTTER_ARCHIVE" -C "$DEV_DIR"
+        
+        rm "$FLUTTER_ARCHIVE"
+        echo "--> Flutter SDK instalado com sucesso."
+    else
+        echo "--> Flutter SDK já encontrado em '$FLUTTER_DIR'. Pulando."
+    fi
+    
+    
     if ! grep -q 'development/flutter/bin' "$HOME/.bash_profile"; then
       echo -e '\n# Add Flutter to PATH\nexport PATH="$PATH:$HOME/development/flutter/bin"' >> "$HOME/.bash_profile"
     fi
     
     # --- Instala JetBrains Toolbox ---
-    echo "Baixando o JetBrains Toolbox..."
-    JETBRAINS_URL="https://data.services.jetbrains.com/products/download?code=TBA&platform=linux&type=release"
-    JETBRAINS_ARCHIVE="$DOWNLOAD_DIR/jetbrains-toolbox.tar.gz"
-    curl -L "$JETBRAINS_URL" -o "$JETBRAINS_ARCHIVE"
-    echo "Extraindo o JetBrains Toolbox..."
-    tar -xzf "$JETBRAINS_ARCHIVE" -C "$DEV_DIR"
-    TOOLBOX_DIR=$(find "$DEV_DIR" -maxdepth 1 -type d -name "jetbrains-toolbox-*")
-    if [ -d "$TOOLBOX_DIR" ]; then
-      echo "Iniciando o JetBrains Toolbox em segundo plano..."
-      nohup "$TOOLBOX_DIR/jetbrains-toolbox" > /dev/null 2>&1 &
+    if ! find "$DEV_DIR" -maxdepth 1 -type d -name "jetbrains-toolbox-*" | grep -q .; then
+        echo "Baixando o JetBrains Toolbox..."
+        JETBRAINS_URL="https://data.services.jetbrains.com/products/download?code=TBA&platform=linux&type=release"
+        JETBRAINS_ARCHIVE="$DOWNLOAD_DIR/jetbrains-toolbox.tar.gz"
+        
+        curl -L "$JETBRAINS_URL" -o "$JETBRAINS_ARCHIVE"
+        
+        echo "Extraindo o JetBrains Toolbox..."
+        tar -xzf "$JETBRAINS_ARCHIVE" -C "$DEV_DIR"
+        TOOLBOX_DIR=$(find "$DEV_DIR" -maxdepth 1 -type d -name "jetbrains-toolbox-*")
+        
+        if [ -d "$TOOLBOX_DIR" ]; then
+            echo "Iniciando o JetBrains Toolbox em segundo plano..."
+            nohup "$TOOLBOX_DIR/jetbrains-toolbox" > /dev/null 2>&1 &
+        else
+            echo "ERRO: Não foi possível encontrar o diretório do JetBrains Toolbox."
+        fi
+        
+        rm "$JETBRAINS_ARCHIVE"
     else
-      echo "ERRO: Não foi possível encontrar o diretório do JetBrains Toolbox."
+      echo "--> JetBrains Toolbox já encontrado em '$DEV_DIR'. Pulando."
     fi
-
-    # --- Limpeza ---
-    echo "Limpando arquivos de instalação baixados..."
-    rm "$FLUTTER_ARCHIVE" "$JETBRAINS_ARCHIVE"
 }
 
 # 9. Configura o Docker e instala o Docker Desktop
