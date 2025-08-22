@@ -15,7 +15,7 @@
 #         NOTES:  Execute este script como um usuário normal. Ele solicitará
 #                 a senha de administrador (sudo) quando necessário.
 #        AUTHOR:  Henrique Bissoli Malaman Alonso
-#       VERSION:  2.0
+#       VERSION:  2.2
 #
 # ===================================================================================
 
@@ -113,8 +113,8 @@ install_dev_tools() {
     sudo rpm --import https://packages.microsoft.com/keys/microsoft.asc
     echo -e "[code]\nname=Visual Studio Code\nbaseurl=https://packages.microsoft.com/yumrepos/vscode\nenabled=1\nautorefresh=1\ntype=rpm-md\ngpgcheck=1\ngpgkey=https://packages.microsoft.com/keys/microsoft.asc" | sudo tee /etc/yum.repos.d/vscode.repo > /dev/null    
     
-    sudo dnf config-manager --add-repo https://download.docker.com/linux/fedora/docker-ce.repo
-
+    sudo dnf-3 config-manager --add-repo https://download.docker.com/linux/fedora/docker-ce.repo
+    
     # --- Instala pacotes via DNF ---
     echo "Instalando pacotes: gh, code, podman, docker e dependências..."
     sudo dnf install -y \
