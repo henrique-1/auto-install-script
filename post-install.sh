@@ -414,7 +414,7 @@ configure_mariadb_pod() {
     echo "Iniciando o contêiner do phpMyAdmin ('$PMA_CONTAINER_NAME')..."
     podman run -d --name "$PMA_CONTAINER_NAME" --pod "$POD_NAME" \
       -e PMA_HOST="$DB_CONTAINER_NAME" \
-      docker.io/library/phpmyadmin/phpmyadmin:latest
+      phpmyadmin:latest
 
     echo "--> Pod com MariaDB e phpMyAdmin configurado com sucesso!"
     echo "--> phpMyAdmin estará acessível em http://localhost:8081"
