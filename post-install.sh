@@ -424,8 +424,8 @@ configure_mariadb_pod() {
     CREATE USER 'pma'@'127.0.0.1' IDENTIFIED BY '$PMA_PASSWORD'; GRANT ALL PRIVILEGES ON phpmyadmin_config_db.* TO 'pma'@'127.0.0.1';
     CREATE USER 'pma'@'::1' IDENTIFIED BY '$PMA_PASSWORD'; GRANT ALL PRIVILEGES ON phpmyadmin_config_db.* TO 'pma'@'::1';
     FLUSH PRIVILEGES;"
-    echo "podman exec $DB_CONTAINER_NAME mariadb -u root -p$ROOT_PASSWORD -e $SQL_COMMAND"
-    podman exec -it "$DB_CONTAINER_NAME" mariadb -u root -p"$ROOT_PASSWORD" -e "$SQL_COMMAND""
+
+    podman exec -it "$DB_CONTAINER_NAME" mariadb -u root -p "$ROOT_PASSWORD" -e "$SQL_COMMAND"
 
     echo "Iniciando o contêiner do phpMyAdmin ('$PMA_CONTAINER_NAME')..."
     podman run -d --name "$PMA_CONTAINER_NAME" --pod "$POD_NAME" \
