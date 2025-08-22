@@ -211,44 +211,62 @@ install_fonts() {
     print_header "Instalando fontes (JetBrains Mono, Nerd Fonts)"
 
     # --- Instala Fontes ---
-    DOWNLOAD_DIR="$HOME/Downloads"
+    local DOWNLOAD_DIR="$HOME/Downloads"
     mkdir -p "$DOWNLOAD_DIR"
 
     # --- JetBrains Mono (Regular) ---
-    echo "Baixando e instalando a fonte JetBrains Mono..."
-    JB_FONT_URL="https://download.jetbrains.com/fonts/JetBrainsMono-2.304.zip"
-    JB_FONT_ZIP="$DOWNLOAD_DIR/JetBrainsMono.zip"
-    JB_FONT_EXTRACT_DIR="$DOWNLOAD_DIR/jetbrains-mono-extracted"
-    JB_FONT_INSTALL_DIR="/usr/local/share/fonts/JetBrainsMono"
+    local JB_FONT_INSTALL_DIR="/usr/local/share/fonts/JetBrainsMono"
 
-    curl -L "$JB_FONT_URL" -o "$JB_FONT_ZIP"
-    unzip -o "$JB_FONT_ZIP" -d "$JB_FONT_EXTRACT_DIR"
-    sudo mkdir -p "$JB_FONT_INSTALL_DIR"
-    sudo cp -f "$JB_FONT_EXTRACT_DIR"/fonts/ttf/*.ttf "$JB_FONT_INSTALL_DIR/"
-    
+    if [ ! -d "$JB_FONT_INSTALL_DIR" ]; then
+        echo "Baixando e instalando a fonte JetBrains Mono..."
+        local JB_FONT_URL="https://download.jetbrains.com/fonts/JetBrainsMono-2.304.zip"
+        local JB_FONT_ZIP="$DOWNLOAD_DIR/JetBrainsMono.zip"
+        local JB_FONT_EXTRACT_DIR="$DOWNLOAD_DIR/jetbrains-mono-extracted"
+
+        curl -L "$JB_FONT_URL" -o "$JB_FONT_ZIP"
+        unzip -o "$JB_FONT_ZIP" -d "$JB_FONT_EXTRACT_DIR"
+        sudo mkdir -p "$JB_FONT_INSTALL_DIR"
+        sudo cp -f "$JB_FONT_EXTRACT_DIR"/fonts/ttf/*.ttf "$JB_FONT_INSTALL_DIR/"
+
+        rm -rf "$JB_FONT_ZIP"
+        rm -rf "$JB_FONT_EXTRACT_DIR"
+        echo "--> Fonte JetBrains Mono instalada."
+    else
+        echo "--> Fonte JetBrains Mono já está instalada. Pulando."
+    fi
+
     # --- JetBrains Mono (Nerd Font) ---
-    echo "Baixando e instalando a fonte JetBrains Mono Nerd Font..."
-    NF_FONT_URL="https://github.com/ryanoasis/nerd-fonts/releases/download/v3.4.0/JetBrainsMono.zip"
-    NF_FONT_ZIP="$DOWNLOAD_DIR/JetBrainsMonoNF.zip"
-    NF_FONT_EXTRACT_DIR="$DOWNLOAD_DIR/jetbrains-mono-nf-extracted"
-    NF_FONT_INSTALL_DIR="/usr/local/share/fonts/JetBrainsMonoNF"
+    local NF_FONT_INSTALL_DIR="/usr/local/share/fonts/JetBrainsMonoNF"
 
-    curl -L "$NF_FONT_URL" -o "$NF_FONT_ZIP"
-    unzip -o "$NF_FONT_ZIP" -d "$NF_FONT_EXTRACT_DIR"
-    sudo mkdir -p "$NF_FONT_INSTALL_DIR"
-    sudo cp -f "$NF_FONT_EXTRACT_DIR"/*.ttf "$NF_FONT_INSTALL_DIR/"
+    if [ ! -d "$JB_FONT_INSTALL_DIR" ]; then
+        echo "Baixando e instalando a fonte JetBrains Mono Nerd Font..."
+        local NF_FONT_URL="https://github.com/ryanoasis/nerd-fonts/releases/download/v3.4.0/JetBrainsMono.zip"
+        local NF_FONT_ZIP="$DOWNLOAD_DIR/JetBrainsMonoNF.zip"
+        local NF_FONT_EXTRACT_DIR="$DOWNLOAD_DIR/jetbrains-mono-nf-extracted"
+
+        curl -L "$NF_FONT_URL" -o "$NF_FONT_ZIP"
+        unzip -o "$NF_FONT_ZIP" -d "$NF_FONT_EXTRACT_DIR"
+        sudo mkdir -p "$NF_FONT_INSTALL_DIR"
+        sudo cp -f "$NF_FONT_EXTRACT_DIR"/*.ttf "$NF_FONT_INSTALL_DIR/"
+
+        rm -rf "$NF_FONT_ZIP"
+        rm -rf "$NF_FONT_EXTRACT_DIR"
+        echo "--> Fonte JetBrains Mono Nerd Font instalada."
+    else
+        echo "--> Fonte JetBrains Mono Nerd Font já está instalada. Pulando."
+    fi
 
     # --- Configura permissões e atualiza cache de fontes ---
     echo "Configurando permissões e atualizando o cache de fontes do sistema..."
-    sudo chown -R root: "$JB_FONT_INSTALL_DIR" "$NF_FONT_INSTALL_DIR"
-    sudo chmod 644 "$JB_FONT_INSTALL_DIR"/* "$NF_FONT_INSTALL_DIR"/*
-    sudo restorecon -vFr "$JB_FONT_INSTALL_DIR" "$NF_FONT_INSTALL_DIR"
+    if [ -d "$JB_FONT_INSTALL_DIR" ] && [ -d "$NF_FONT_INSTALL_DIR" ]; then
+        sudo chown -R root: "$JB_FONT_INSTALL_DIR" "$NF_FONT_INSTALL_DIR"
+        sudo chmod 644 "$JB_FONT_INSTALL_DIR"/* "$NF_FONT_INSTALL_DIR"/*
+        sudo restorecon -vFr "$JB_FONT_INSTALL_DIR" "$NF_FONT_INSTALL_DIR"
+    fi
     sudo fc-cache -fv
 
     # --- Limpeza ---
     echo "Limpando arquivos de instalação de fontes..."
-    rm "$JB_FONT_ZIP" "$NF_FONT_ZIP"
-    rm -rf "$JB_FONT_EXTRACT_DIR" "$NF_FONT_EXTRACT_DIR"
 }
 
 
@@ -362,12 +380,12 @@ configure_mariadb_pod() {
       -e MYSQL_ROOT_PASSWORD="$ROOT_PASSWORD" \
       -e MYSQL_USER="henrique_1" \
       -e MYSQL_PASSWORD="Hl4035c360#" \
-      mariadb:latest
+      docker.io/library/mariadb:latest
 
     echo "Aguardando o banco de dados MariaDB ficar disponível..."
     local ready=0
     for i in {1..12}; do
-        if podman exec "$DB_CONTAINER_NAME" mariadb-admin ping -u root -p"$ROOT_PASSWORD" &> /dev/null; then
+        if podman exec -e MYSQL_PWD="$ROOT_PASSWORD" "$DB_CONTAINER_NAME" mariadb-admin ping -u root &> /dev/null; then
             echo "--> Banco de dados está pronto!"
             ready=1
             break
@@ -382,13 +400,21 @@ configure_mariadb_pod() {
     fi
 
     echo "Configurando usuário 'pma' para o phpMyAdmin..."
-    local SQL_COMMAND="DROP USER IF EXISTS 'pma'@'localhost'; DROP USER IF EXISTS 'pma'@'127.0.0.1'; DROP USER IF EXISTS 'pma'@'::1'; FLUSH PRIVILEGES; CREATE DATABASE IF NOT EXISTS phpmyadmin_config_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci; CREATE USER 'pma'@'localhost' IDENTIFIED BY '$PMA_PASSWORD'; GRANT ALL PRIVILEGES ON phpmyadmin_config_db.* TO 'pma'@'localhost'; CREATE USER 'pma'@'127.0.0.1' IDENTIFIED BY '$PMA_PASSWORD'; GRANT ALL PRIVILEGES ON phpmyadmin_config_db.* TO 'pma'@'127.0.0.1'; CREATE USER 'pma'@'::1' IDENTIFIED BY '$PMA_PASSWORD'; GRANT ALL PRIVILEGES ON phpmyadmin_config_db.* TO 'pma'@'::1'; FLUSH PRIVILEGES;"
+    local SQL_COMMAND="DROP USER IF EXISTS 'pma'@'localhost';
+    DROP USER IF EXISTS 'pma'@'127.0.0.1';
+    DROP USER IF EXISTS 'pma'@'::1'; FLUSH PRIVILEGES;
+    CREATE DATABASE IF NOT EXISTS phpmyadmin_config_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+    CREATE USER 'pma'@'localhost' IDENTIFIED BY '$PMA_PASSWORD'; GRANT ALL PRIVILEGES ON phpmyadmin_config_db.* TO 'pma'@'localhost';
+    CREATE USER 'pma'@'127.0.0.1' IDENTIFIED BY '$PMA_PASSWORD'; GRANT ALL PRIVILEGES ON phpmyadmin_config_db.* TO 'pma'@'127.0.0.1';
+    CREATE USER 'pma'@'::1' IDENTIFIED BY '$PMA_PASSWORD'; GRANT ALL PRIVILEGES ON phpmyadmin_config_db.* TO 'pma'@'::1';
+    FLUSH PRIVILEGES;"
+    echo "podman exec `$DB_CONTAINER_NAME` mariadb -u root -p`$ROOT_PASSWORD` -e `$SQL_COMMAND`"
     podman exec "$DB_CONTAINER_NAME" mariadb -u root -p"$ROOT_PASSWORD" -e "$SQL_COMMAND"
 
     echo "Iniciando o contêiner do phpMyAdmin ('$PMA_CONTAINER_NAME')..."
     podman run -d --name "$PMA_CONTAINER_NAME" --pod "$POD_NAME" \
       -e PMA_HOST="$DB_CONTAINER_NAME" \
-      phpmyadmin/phpmyadmin:latest
+      docker.io/library/phpmyadmin/phpmyadmin:latest
 
     echo "--> Pod com MariaDB e phpMyAdmin configurado com sucesso!"
     echo "--> phpMyAdmin estará acessível em http://localhost:8081"
