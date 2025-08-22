@@ -15,7 +15,7 @@
 #         NOTES:  Execute este script como um usuário normal. Ele solicitará
 #                 a senha de administrador (sudo) quando necessário.
 #        AUTHOR:  Henrique Bissoli Malaman Alonso
-#       VERSION:  2.2
+#       VERSION:  2.3
 #
 # ===================================================================================
 
@@ -107,13 +107,29 @@ install_dev_tools() {
 
     # --- Adiciona repositórios de terceiros ---
     echo "Adicionando repositórios necessários..."
-    sudo dnf config-manager addrepo --from-repofile=https://cli.github.com/packages/rpm/gh-cli.repo
-    sudo dnf install gh --repo gh-cli
 
-    sudo rpm --import https://packages.microsoft.com/keys/microsoft.asc
-    echo -e "[code]\nname=Visual Studio Code\nbaseurl=https://packages.microsoft.com/yumrepos/vscode\nenabled=1\nautorefresh=1\ntype=rpm-md\ngpgcheck=1\ngpgkey=https://packages.microsoft.com/keys/microsoft.asc" | sudo tee /etc/yum.repos.d/vscode.repo > /dev/null    
-    
-    sudo dnf-3 config-manager --add-repo https://download.docker.com/linux/fedora/docker-ce.repo
+    if [ ! -f "/etc/yum.repos.d/gh-cli.repo" ]; then
+        echo "--> Adicionando repositório do GitHub CLI..."
+        sudo dnf config-manager addrepo --from-repofile=https://cli.github.com/packages/rpm/gh-cli.repo
+    else
+        echo "--> Repositório do GitHub CLI já existe. Pulando."
+    fi
+    sudo dnf install -y gh --repo gh-cli
+
+    if [ ! -f "/etc/yum.repos.d/vscode.repo" ]; then
+        echo "--> Adicionando repositório do Visual Studio Code..."
+        sudo rpm --import https://packages.microsoft.com/keys/microsoft.asc
+        echo -e "[code]\nname=Visual Studio Code\nbaseurl=https://packages.microsoft.com/yumrepos/vscode\nenabled=1\nautorefresh=1\ntype=rpm-md\ngpgcheck=1\ngpgkey=https://packages.microsoft.com/keys/microsoft.asc" | sudo tee /etc/yum.repos.d/vscode.repo > /dev/null    
+    else
+        echo "--> Repositório do Visual Studio Code já existe. Pulando."
+    fi
+
+    if [ ! -f "/etc/yum.repos.d/docker-ce.repo" ]; then
+        echo "--> Adicionando repositório do Docker..."
+        sudo dnf-3 config-manager --add-repo https://download.docker.com/linux/fedora/docker-ce.repo
+    else
+        echo "--> Repositório do Docker já existe. Pulando."
+    fi
     
     # --- Instala pacotes via DNF ---
     echo "Instalando pacotes: gh, code, podman, docker e dependências..."
@@ -154,6 +170,7 @@ install_web_dev_stack() {
 
     # --- Instala PHP e extensões ---
     echo "Instalando PHP e extensões via DNF..."
+    
     sudo dnf install -y \
       php php-cli php-fpm php-mysqlnd php-gd php-intl php-mbstring php-pdo \
       php-xml php-pecl-zip php-bcmath php-sodium php-opcache php-devel php-common
@@ -170,8 +187,9 @@ install_web_dev_stack() {
             rm composer-setup.php
             exit 1
         fi
-        php composer-setup.php --install-dir=/usr/local/bin --filename=composer
-        rm composer-setup.php
+        php composer-setup.php
+        php -r "unlink('composer-setup.php');"
+        sudo mv composer.phar /usr/local/bin/composer
         cd - > /dev/null
     else
         echo "Composer já está instalado. Pulando."
