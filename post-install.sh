@@ -15,7 +15,7 @@
 #         NOTES:  Execute este script como um usuário normal. Ele solicitará
 #                 a senha de administrador (sudo) quando necessário.
 #        AUTHOR:  Henrique Bissoli Malaman Alonso
-#       VERSION:  1.9
+#       VERSION:  2.0
 #
 # ===================================================================================
 
@@ -45,14 +45,13 @@ setup_multimedia_and_java() {
 
     echo "Adicionando repositórios RPM Fusion (free e non-free)..."
     sudo dnf install -y \
-      https://download1.rpmfusion.org/free/fedora/rpmfusion-free-release-$(rpm -E %fedora).noarch.rpm \
-      https://download1.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-$(rpm -E %fedora).noarch.rpm
+      https://download1.rpmfusion.org/free/fedora/rpmfusion-free-release-"$(rpm -E %fedora)".noarch.rpm \
+      https://download1.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-"$(rpm -E %fedora)".noarch.rpm
 
     echo "Atualizando o grupo de pacotes 'core'..."
     sudo dnf group upgrade -y core
 
     echo "Instalando Java, pacotes multimídia e codecs..."
-    # Instala o grupo multimídia e outros pacotes de uma vez.
     sudo dnf group install -y multimedia
     sudo dnf install -y \
       java-latest-openjdk.x86_64 \
@@ -65,11 +64,10 @@ setup_multimedia_and_java() {
 # 3. Instala o Oh My Bash
 install_oh_my_bash() {
     print_header "Instalando o Oh My Bash"
-    # O script do Oh My Bash é interativo e pode pedir sua confirmação.
     if [ -d "$HOME/.oh-my-bash" ]; then
         echo "Oh My Bash já está instalado. Pulando."
     else
-        bash -c "$(curl -fsSL https://raw.githubusercontent.com/ohmybash/oh-my-bash/master/tools/install.sh)"
+        bash -c "$(curl -fsSL https://raw.githubusercontent.com/ohmybash/oh-my-bash/master/tools/install.sh)" "" --unattended
     fi
 }
 
@@ -78,8 +76,10 @@ setup_flatpak() {
     print_header "Configurando o Flatpak e instalando aplicativos"
     sudo dnf install -y flatpak
 
-    echo "Adicionando o repositório Flathub..."
+    echo "Adicionando e habilitando o repositório Flathub..."
     flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+    
+    flatpak remote-modify --enable flathub
 
     # Lista de aplicativos Flatpak para instalar
     FLATPAK_APPS=(
@@ -92,8 +92,12 @@ setup_flatpak() {
 
     echo "Instalando aplicativos via Flatpak..."
     for app in "${FLATPAK_APPS[@]}"; do
-        echo "--> Instalando: $app"
-        flatpak install -y flathub "$app"
+        if flatpak info "$app" > /dev/null 2>&1; then
+            echo "--> O aplicativo '$app' já está instalado. Pulando."
+        else
+            echo "--> Instalando: $app"
+            flatpak install -y flathub "$app"
+        fi
     done
 }
 
@@ -102,15 +106,11 @@ install_dev_tools() {
     print_header "Instalando Ferramentas de Desenvolvimento"
 
     # --- Adiciona repositórios de terceiros ---
-    echo "Adicionando repositório do GitHub CLI..."
-    sudo dnf config-manager addrepo --from-repofile=https://cli.github.com/packages/rpm/gh-cli.repo
-
-    echo "Adicionando repositório do Visual Studio Code..."
+    echo "Adicionando repositórios necessários..."
+    sudo dnf config-manager --add-repo https://cli.github.com/packages/rpm/gh-cli.repo
     sudo rpm --import https://packages.microsoft.com/keys/microsoft.asc
     echo -e "[code]\nname=Visual Studio Code\nbaseurl=https://packages.microsoft.com/yumrepos/vscode\nenabled=1\ngpgcheck=1\ngpgkey=https://packages.microsoft.com/keys/microsoft.asc" | sudo tee /etc/yum.repos.d/vscode.repo > /dev/null
-
-    echo "Adicionando repositório do Docker..."
-    sudo dnf-3 config-manager --add-repo https://download.docker.com/linux/fedora/docker-ce.repo
+    sudo dnf config-manager --add-repo https://download.docker.com/linux/fedora/docker-ce.repo
 
     # --- Instala pacotes via DNF ---
     echo "Instalando pacotes: gh, code, podman, docker e dependências..."
@@ -125,7 +125,12 @@ install_web_dev_stack() {
 
     # --- Instala NVM e Node.js ---
     echo "Baixando e instalando o NVM (Node Version Manager)..."
-    curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash
+    # ALTERAÇÃO: Verifica se o NVM já está instalado antes de baixar.
+    if [ ! -d "$HOME/.nvm" ]; then
+        curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash
+    else
+        echo "NVM já está instalado. Pulando download."
+    fi
 
     echo "Carregando o NVM no shell atual para uso imediato..."
     export NVM_DIR="$HOME/.nvm"
@@ -152,17 +157,22 @@ install_web_dev_stack() {
 
     # --- Instala Composer e Laravel Installer ---
     echo "Instalando o Composer (gerenciador de dependências para PHP)..."
-    cd /tmp
-    php -r "copy('https://getcomposer.org/installer', 'composer-setup.php');"
-    EXPECTED_SIGNATURE=$(curl -s https://composer.github.io/installer.sig)
-    ACTUAL_SIGNATURE=$(php -r "echo hash_file('sha384', 'composer-setup.php');")
-    if [ "$EXPECTED_SIGNATURE" != "$ACTUAL_SIGNATURE" ]; then
-        >&2 echo 'ERRO: Assinatura do instalador do Composer é inválida.'
+    if ! command -v composer &> /dev/null; then
+        cd /tmp
+        php -r "copy('https://getcomposer.org/installer', 'composer-setup.php');"
+        EXPECTED_SIGNATURE=$(curl -s https://composer.github.io/installer.sig)
+        ACTUAL_SIGNATURE=$(php -r "echo hash_file('sha384', 'composer-setup.php');")
+        if [ "$EXPECTED_SIGNATURE" != "$ACTUAL_SIGNATURE" ]; then
+            >&2 echo 'ERRO: Assinatura do instalador do Composer é inválida.'
+            rm composer-setup.php
+            exit 1
+        fi
+        php composer-setup.php --install-dir=/usr/local/bin --filename=composer
         rm composer-setup.php
-        exit 1
+        cd - > /dev/null
+    else
+        echo "Composer já está instalado. Pulando."
     fi
-    php composer-setup.php && php -r "unlink('composer-setup.php');"
-    sudo mv composer.phar /usr/local/bin/composer
     
     COMPOSER_VENDOR_PATH="$HOME/.config/composer/vendor/bin"
     if ! grep -q "$COMPOSER_VENDOR_PATH" "$HOME/.bash_profile"; then
@@ -313,8 +323,6 @@ configure_mariadb_pod() {
     local DB_CONTAINER_NAME="mariadb-db"
     local PMA_CONTAINER_NAME="phpmyadmin-ui"
     
-    # AVISO DE SEGURANÇA: Hardcodar senhas é uma má prática.
-    # Considere usar variáveis de ambiente ou secrets do Podman para produção.
     local ROOT_PASSWORD="MariaDB@NarigudoGamer#ro0t"
     local PMA_PASSWORD="PMA@NarigudoGamer#ro0t"
 
