@@ -82,7 +82,7 @@ setup_flatpak() {
     flatpak remote-modify --enable flathub
 
     # Lista de aplicativos Flatpak para instalar
-    FLATPAK_APPS=(
+    local FLATPAK_APPS=(
         com.spotify.Client com.usebruno.Bruno com.discordapp.Discord
         org.gnome.Extensions com.github.tchx84.Flatseal it.mijorus.gearlever
         com.mattjakeman.ExtensionManager com.heroicgameslauncher.hgl
@@ -180,8 +180,8 @@ install_web_dev_stack() {
     if ! command -v composer &> /dev/null; then
         cd /tmp
         php -r "copy('https://getcomposer.org/installer', 'composer-setup.php');"
-        EXPECTED_SIGNATURE=$(curl -s https://composer.github.io/installer.sig)
-        ACTUAL_SIGNATURE=$(php -r "echo hash_file('sha384', 'composer-setup.php');")
+        local EXPECTED_SIGNATURE=$(curl -s https://composer.github.io/installer.sig)
+        local ACTUAL_SIGNATURE=$(php -r "echo hash_file('sha384', 'composer-setup.php');")
         if [ "$EXPECTED_SIGNATURE" != "$ACTUAL_SIGNATURE" ]; then
             >&2 echo 'ERRO: Assinatura do instalador do Composer é inválida.'
             rm composer-setup.php
@@ -288,8 +288,8 @@ install_flutter_and_jetbrains() {
     local FLUTTER_DIR="$DEV_DIR/flutter"
     if [ ! -d "$FLUTTER_DIR" ]; then
         echo "Baixando o Flutter SDK..."
-        FLUTTER_URL="https://storage.googleapis.com/flutter_infra_release/releases/stable/linux/flutter_linux_3.22.2-stable.tar.xz"
-        FLUTTER_ARCHIVE="$DOWNLOAD_DIR/flutter.tar.xz"
+        local FLUTTER_URL="https://storage.googleapis.com/flutter_infra_release/releases/stable/linux/flutter_linux_3.22.2-stable.tar.xz"
+        local FLUTTER_ARCHIVE="$DOWNLOAD_DIR/flutter.tar.xz"
     
         curl -L "$FLUTTER_URL" -o "$FLUTTER_ARCHIVE"
         echo "Extraindo o Flutter para $DEV_DIR..."
@@ -309,14 +309,14 @@ install_flutter_and_jetbrains() {
     # --- Instala JetBrains Toolbox ---
     if ! find "$DEV_DIR" -maxdepth 1 -type d -name "jetbrains-toolbox-*" | grep -q .; then
         echo "Baixando o JetBrains Toolbox..."
-        JETBRAINS_URL="https://data.services.jetbrains.com/products/download?code=TBA&platform=linux&type=release"
-        JETBRAINS_ARCHIVE="$DOWNLOAD_DIR/jetbrains-toolbox.tar.gz"
+        local JETBRAINS_URL="https://data.services.jetbrains.com/products/download?code=TBA&platform=linux&type=release"
+        local JETBRAINS_ARCHIVE="$DOWNLOAD_DIR/jetbrains-toolbox.tar.gz"
         
         curl -L "$JETBRAINS_URL" -o "$JETBRAINS_ARCHIVE"
         
         echo "Extraindo o JetBrains Toolbox..."
         tar -xzf "$JETBRAINS_ARCHIVE" -C "$DEV_DIR"
-        TOOLBOX_DIR=$(find "$DEV_DIR" -maxdepth 1 -type d -name "jetbrains-toolbox-*")
+        local TOOLBOX_DIR=$(find "$DEV_DIR" -maxdepth 1 -type d -name "jetbrains-toolbox-*")
         
         if [ -d "$TOOLBOX_DIR" ]; then
             echo "Iniciando o JetBrains Toolbox em segundo plano..."
