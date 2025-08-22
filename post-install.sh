@@ -334,16 +334,21 @@ install_flutter_and_jetbrains() {
 # 9. Configura o Docker e instala o Docker Desktop
 configure_docker() {
     print_header "Configurando o Docker e instalando o Docker Desktop"
+    
     sudo systemctl enable --now docker
     sudo groupadd docker || true
     sudo usermod -aG docker "$USER"
     
-    echo "Baixando e instalando o Docker Desktop..."
-    local DOCKER_DESKTOP_URL="https://desktop.docker.com/linux/main/amd64/docker-desktop-x86_64.rpm"
-    local DOCKER_DESKTOP_RPM="$HOME/Downloads/docker-desktop.rpm"
-    curl -L "$DOCKER_DESKTOP_URL" -o "$DOCKER_DESKTOP_RPM"
-    sudo dnf install -y "$DOCKER_DESKTOP_RPM"
-    rm "$DOCKER_DESKTOP_RPM"
+    if ! dnf list installed docker-desktop &> /dev/null; then
+        echo "Baixando e instalando o Docker Desktop..."
+        local DOCKER_DESKTOP_URL="https://desktop.docker.com/linux/main/amd64/docker-desktop-x86_64.rpm"
+        local DOCKER_DESKTOP_RPM="$HOME/Downloads/docker-desktop.rpm"
+        curl -L "$DOCKER_DESKTOP_URL" -o "$DOCKER_DESKTOP_RPM"
+        sudo dnf install -y "$DOCKER_DESKTOP_RPM"
+        rm "$DOCKER_DESKTOP_RPM"
+    else
+        echo "--> Docker Desktop já está instalado. Pulando."
+    fi
 }
 
 # 10. Instala o MySQL Workbench
