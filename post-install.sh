@@ -389,6 +389,7 @@ configure_mariadb_pod() {
     
     local ROOT_PASSWORD="O7Pa4T5\{y5q%82aAc8>ne"
     local PMA_PASSWORD="0a_<r(WYm(P,-e58P{x,f8"
+    local USER_PASSWORD="}T\I8z1<?6&6"
 
     if podman pod exists "$POD_NAME"; then
         echo -e "${YELLOW}--> Pod '$POD_NAME' encontrado. Removendo...${NC}"
@@ -396,6 +397,7 @@ configure_mariadb_pod() {
     fi
 
     echo -e "${BLUE}--> Criando o pod '$POD_NAME'...${NC}"
+
     podman pod create --name "$POD_NAME" -p 3306:3306 -p 8081:80
 
     echo -e "${BLUE}--> Iniciando o contêiner do MariaDB ('$DB_CONTAINER_NAME')...${NC}"
@@ -403,7 +405,7 @@ configure_mariadb_pod() {
       -v mariadb_app_data:/var/lib/mysql:Z \
       -e MYSQL_ROOT_PASSWORD="$ROOT_PASSWORD" \
       -e MYSQL_USER="$USER" \
-      -e MYSQL_PASSWORD="}T\I8z1<?6&6" \
+      -e MYSQL_PASSWORD="$USER_PASSWORD" \
       docker.io/library/mariadb:latest
 
     echo -e "--> Aguardando o banco de dados MariaDB ficar disponível..."
@@ -441,7 +443,11 @@ configure_mariadb_pod() {
       docker.io/library/phpmyadmin:latest
 
     echo -e "${GREEN}--> Pod com MariaDB e phpMyAdmin configurado com sucesso!${NC}"
-    echo -e "--> phpMyAdmin estará acessível em http://localhost:8081"
+    echo -e "${YELLOW}--> phpMyAdmin estará acessível em http://localhost:8081${NC}"
+    
+    echo -e "${YELLOW}--> Usuário: root - Senha: '$ROOT_PASSWORD'...${NC}"
+    echo -e "${YELLOW}--> Usuário: pma - Senha: '$PMA_PASSWORD'...${NC}"
+    echo -e "${YELLOW}--> Usuário: '$USER' - Senha: '$USER_PASSWORD'...${NC}"
 }
 
 # --- Função Principal ---
