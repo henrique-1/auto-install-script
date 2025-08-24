@@ -387,8 +387,8 @@ configure_mariadb_pod() {
     local DB_CONTAINER_NAME="mariadb-db"
     local PMA_CONTAINER_NAME="phpmyadmin-ui"
     
-    local ROOT_PASSWORD="MariaDB@NarigudoGamer#ro0t"
-    local PMA_PASSWORD="PMA@NarigudoGamer#ro0t"
+    local ROOT_PASSWORD="Senha do Usuário root do MySQL"
+    local PMA_PASSWORD="0a_<r(WYm(P,-e58P{x,f8"
 
     if podman pod exists "$POD_NAME"; then
         echo -e "${YELLOW}--> Pod '$POD_NAME' encontrado. Removendo...${NC}"
@@ -423,17 +423,17 @@ configure_mariadb_pod() {
         exit 1
     fi
 
-    echo -e "${BLUE}--> Configurando usuário 'pma' para o phpMyAdmin...${NC}"
-    local SQL_COMMAND="DROP USER IF EXISTS 'pma'@'localhost';
-    DROP USER IF EXISTS 'pma'@'127.0.0.1';
-    DROP USER IF EXISTS 'pma'@'::1'; FLUSH PRIVILEGES;
-    CREATE DATABASE IF NOT EXISTS phpmyadmin_config_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-    CREATE USER 'pma'@'localhost' IDENTIFIED BY '$PMA_PASSWORD'; GRANT ALL PRIVILEGES ON phpmyadmin_config_db.* TO 'pma'@'localhost';
-    CREATE USER 'pma'@'127.0.0.1' IDENTIFIED BY '$PMA_PASSWORD'; GRANT ALL PRIVILEGES ON phpmyadmin_config_db.* TO 'pma'@'127.0.0.1';
-    CREATE USER 'pma'@'::1' IDENTIFIED BY '$PMA_PASSWORD'; GRANT ALL PRIVILEGES ON phpmyadmin_config_db.* TO 'pma'@'::1';
-    FLUSH PRIVILEGES;"
+    # echo -e "${BLUE}--> Configurando usuário 'pma' para o phpMyAdmin...${NC}"
+    # local SQL_COMMAND="DROP USER IF EXISTS 'pma'@'localhost';
+    # DROP USER IF EXISTS 'pma'@'127.0.0.1';
+    # DROP USER IF EXISTS 'pma'@'::1'; FLUSH PRIVILEGES;
+    # CREATE DATABASE IF NOT EXISTS phpmyadmin_config_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+    # CREATE USER 'pma'@'localhost' IDENTIFIED BY '$PMA_PASSWORD'; GRANT ALL PRIVILEGES ON phpmyadmin_config_db.* TO 'pma'@'localhost';
+    # CREATE USER 'pma'@'127.0.0.1' IDENTIFIED BY '$PMA_PASSWORD'; GRANT ALL PRIVILEGES ON phpmyadmin_config_db.* TO 'pma'@'127.0.0.1';
+    # CREATE USER 'pma'@'::1' IDENTIFIED BY '$PMA_PASSWORD'; GRANT ALL PRIVILEGES ON phpmyadmin_config_db.* TO 'pma'@'::1';
+    # FLUSH PRIVILEGES;"
 
-    podman exec -it "$DB_CONTAINER_NAME" mariadb -u root -p"$ROOT_PASSWORD" -e "$SQL_COMMAND"
+    # podman exec -it "$DB_CONTAINER_NAME" mariadb -u root -p"$ROOT_PASSWORD" -e "$SQL_COMMAND"
 
     echo -e "{BLUE}--> Iniciando o contêiner do phpMyAdmin ('$PMA_CONTAINER_NAME')...${NC}"
     podman run -d --name "$PMA_CONTAINER_NAME" --pod "$POD_NAME" \
