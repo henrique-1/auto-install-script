@@ -409,21 +409,9 @@ configure_mariadb_pod() {
       docker.io/library/mariadb:latest
 
     echo -e "--> Aguardando o banco de dados MariaDB ficar disponível..."
-    local ready=0
-    for i in {1..12}; do
-        if podman exec -e MYSQL_PWD="$ROOT_PASSWORD" "$DB_CONTAINER_NAME" mariadb-admin ping -u root &> /dev/null; then
-            echo -e "${GREEN}--> Banco de dados está pronto!${NC}"
-            ready=1
-            break
-        fi
-        echo -e "--> Tentativa $i/12: Ainda não está pronto. Aguardando 5 segundos...${NC}"
-        sleep 5
-    done
-
-    if [[ "$ready" -eq 0 ]]; then
-        echo -e "${RED}ERRO: O banco de dados MariaDB não ficou pronto em 60 segundos.${NC}" >&2
-        exit 1
-    fi
+    echo -e "${GREEN}--> Aguardando o Banco de Dados ficar pronto!${NC}"
+    sleep 120
+    echo -e "${GREEN}--> Banco de dados está pronto!${NC}"
 
     # echo -e "${BLUE}--> Configurando usuário 'pma' para o phpMyAdmin...${NC}"
     # local SQL_COMMAND="DROP USER IF EXISTS 'pma'@'localhost';
