@@ -437,7 +437,7 @@ configure_mariadb_pod() {
 
     # podman exec -it "$DB_CONTAINER_NAME" mariadb -u root -p"$ROOT_PASSWORD" -e "$SQL_COMMAND"
 
-    echo -e "{BLUE}--> Iniciando o contêiner do phpMyAdmin ('$PMA_CONTAINER_NAME')...${NC}"
+    echo -e "${BLUE}--> Iniciando o contêiner do phpMyAdmin ('$PMA_CONTAINER_NAME')...${NC}"
     podman run -d --name "$PMA_CONTAINER_NAME" --pod "$POD_NAME" \
       -e PMA_HOST="$DB_CONTAINER_NAME" \
       docker.io/library/phpmyadmin:latest
