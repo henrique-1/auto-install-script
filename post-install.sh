@@ -387,7 +387,7 @@ configure_mariadb_pod() {
     local DB_CONTAINER_NAME="mariadb-db"
     local PMA_CONTAINER_NAME="phpmyadmin-ui"
     
-    local ROOT_PASSWORD="Senha do Usuário root do MySQL"
+    local ROOT_PASSWORD="O7Pa4T5\{y5q%82aAc8>ne"
     local PMA_PASSWORD="0a_<r(WYm(P,-e58P{x,f8"
 
     if podman pod exists "$POD_NAME"; then
@@ -402,8 +402,8 @@ configure_mariadb_pod() {
     podman run -d --name "$DB_CONTAINER_NAME" --pod "$POD_NAME" \
       -v mariadb_app_data:/var/lib/mysql:Z \
       -e MYSQL_ROOT_PASSWORD="$ROOT_PASSWORD" \
-      -e MYSQL_USER="henrique_1" \
-      -e MYSQL_PASSWORD="Hl4035c360#" \
+      -e MYSQL_USER="$USER" \
+      -e MYSQL_PASSWORD="}T\I8z1<?6&6" \
       docker.io/library/mariadb:latest
 
     echo -e "--> Aguardando o banco de dados MariaDB ficar disponível..."
