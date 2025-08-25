@@ -387,9 +387,9 @@ configure_mariadb_pod() {
     local DB_CONTAINER_NAME="mariadb-db"
     local PMA_CONTAINER_NAME="phpmyadmin-ui"
     
-    local ROOT_PASSWORD="CPJYshm9S9r5SKZq5F1T4_$(date +%s)"
-    local PMA_PASSWORD="VxiE6xZxsgK4v0w06BmqN_$(date +%s)"
-    local USER_PASSWORD="MaL1B19j8mTw_$(date +%s)"
+    local ROOT_PASSWORD="$(date +%s)$(openssl rand -hex 8)"
+    local PMA_PASSWORD="$(date +%s)$(openssl rand -hex 8)"
+    local USER_PASSWORD="$(date +%s)$(openssl rand -hex 8)"
 
     if podman pod exists "$POD_NAME"; then
         echo -e "${YELLOW}--> Pod '$POD_NAME' encontrado. Removendo...${NC}"
