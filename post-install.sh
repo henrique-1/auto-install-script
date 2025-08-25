@@ -419,6 +419,8 @@ configure_mariadb_pod() {
     done
     echo -e "${BOLD_GREEN}--> Sucesso! O banco de dados está 100% operacional.${NC}"
 
+    sleep 30
+
     echo -e "${BLUE}--> Configurando usuário 'pma' para o phpMyAdmin...${NC}"
     podman exec -i "$DB_CONTAINER_NAME" mariadb -u root --password="$ROOT_PASSWORD" <<-EOSQL
         DROP USER IF EXISTS 'pma'@'localhost';
