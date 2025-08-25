@@ -397,14 +397,19 @@ configure_mariadb_pod() {
         podman pod rm -f "$POD_NAME"
     fi
 
+    sleep 15
+
     if podman volume exists "$DB_VOLUME_NAME"; then
         echo -e "${YELLOW}--> Volume '$DB_VOLUME_NAME' encontrado. Removendo para garantir uma inicialização limpa...${NC}"
         podman volume rm -f "$DB_VOLUME_NAME"
     fi
 
-    echo -e "${BLUE}--> Criando o pod '$POD_NAME'...${NC}"
+    sleep 15
 
+    echo -e "${BLUE}--> Criando o pod '$POD_NAME'...${NC}"
     podman pod create --name "$POD_NAME" -p 3306:3306 -p 8081:80
+
+    sleep 5
 
     echo -e "${BLUE}--> Iniciando o contêiner do MariaDB ('$DB_CONTAINER_NAME')...${NC}"
     podman run -d --name "$DB_CONTAINER_NAME" --pod "$POD_NAME" \
@@ -413,6 +418,8 @@ configure_mariadb_pod() {
       -e MYSQL_USER="$USER" \
       -e MYSQL_PASSWORD="$USER_PASSWORD" \
       docker.io/library/mariadb:latest
+
+    sleep 5
 
     echo -e "${GREEN}--> Verificando ativamente se o banco de dados está pronto e configurado...${NC}"
     local max_retries=30
@@ -443,6 +450,7 @@ configure_mariadb_pod() {
         FLUSH PRIVILEGES;
 EOSQL
 
+    sleep 5
     echo -e "${BLUE}--> Iniciando o contêiner do phpMyAdmin ('$PMA_CONTAINER_NAME')...${NC}"
     podman run -d --name "$PMA_CONTAINER_NAME" --pod "$POD_NAME" \
       -e PMA_HOST="$DB_CONTAINER_NAME" \
