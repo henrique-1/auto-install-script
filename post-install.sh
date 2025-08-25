@@ -408,14 +408,13 @@ configure_mariadb_pod() {
       -e MYSQL_PASSWORD="$USER_PASSWORD" \
       docker.io/library/mariadb:latest
 
-    echo -e "--> Aguardando o banco de dados MariaDB ficar disponível..."
     echo -e "${YELLOW}--> Aguardando o Banco de Dados MariaDB iniciar (120 segundos)...${NC}"
     sleep 120
     echo -e "${GREEN}--> Banco de dados está pronto!${NC}"
 
     echo -e "${BLUE}--> Configurando usuário 'pma' para o phpMyAdmin...${NC}"
 
-    podman exec -it "$DB_CONTAINER_NAME" mariadb -u root -p"$ROOT_PASSWORD" -e <<-EOSQL
+    podman exec -it "$DB_CONTAINER_NAME" mariadb -u root --password="$ROOT_PASSWORD" <<-EOSQL
         DROP USER IF EXISTS 'pma'@'localhost';
         DROP USER IF EXISTS 'pma'@'127.0.0.1';
         DROP USER IF EXISTS 'pma'@'::1';
