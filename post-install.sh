@@ -387,9 +387,9 @@ configure_mariadb_pod() {
     local DB_CONTAINER_NAME="mariadb-db"
     local PMA_CONTAINER_NAME="phpmyadmin-ui"
     
-    local ROOT_PASSWORD="O7Pa4T5\{y5q%82aAc8>ne"
-    local PMA_PASSWORD="0a_<r(WYm(P,-e58P{x,f8"
-    local USER_PASSWORD="}T\I8z1<?6&6"
+    local ROOT_PASSWORD="CPJYshm9S9r5SKZq5F1T4_$(date +%s)"
+    local PMA_PASSWORD="VxiE6xZxsgK4v0w06BmqN_$(date +%s)"
+    local USER_PASSWORD="MaL1B19j8mTw_$(date +%s)"
 
     if podman pod exists "$POD_NAME"; then
         echo -e "${YELLOW}--> Pod '$POD_NAME' encontrado. Removendo...${NC}"
@@ -409,21 +409,23 @@ configure_mariadb_pod() {
       docker.io/library/mariadb:latest
 
     echo -e "--> Aguardando o banco de dados MariaDB ficar disponível..."
-    echo -e "${GREEN}--> Aguardando o Banco de Dados ficar pronto!${NC}"
+    echo -e "${YELLOW}--> Aguardando o Banco de Dados MariaDB iniciar (120 segundos)...${NC}"
     sleep 120
     echo -e "${GREEN}--> Banco de dados está pronto!${NC}"
 
-    # echo -e "${BLUE}--> Configurando usuário 'pma' para o phpMyAdmin...${NC}"
-    # local SQL_COMMAND="DROP USER IF EXISTS 'pma'@'localhost';
-    # DROP USER IF EXISTS 'pma'@'127.0.0.1';
-    # DROP USER IF EXISTS 'pma'@'::1'; FLUSH PRIVILEGES;
-    # CREATE DATABASE IF NOT EXISTS phpmyadmin_config_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-    # CREATE USER 'pma'@'localhost' IDENTIFIED BY '$PMA_PASSWORD'; GRANT ALL PRIVILEGES ON phpmyadmin_config_db.* TO 'pma'@'localhost';
-    # CREATE USER 'pma'@'127.0.0.1' IDENTIFIED BY '$PMA_PASSWORD'; GRANT ALL PRIVILEGES ON phpmyadmin_config_db.* TO 'pma'@'127.0.0.1';
-    # CREATE USER 'pma'@'::1' IDENTIFIED BY '$PMA_PASSWORD'; GRANT ALL PRIVILEGES ON phpmyadmin_config_db.* TO 'pma'@'::1';
-    # FLUSH PRIVILEGES;"
+    echo -e "${BLUE}--> Configurando usuário 'pma' para o phpMyAdmin...${NC}"
 
-    # podman exec -it "$DB_CONTAINER_NAME" mariadb -u root -p"$ROOT_PASSWORD" -e "$SQL_COMMAND"
+    podman exec -it "$DB_CONTAINER_NAME" mariadb -u root -p"$ROOT_PASSWORD" -e <<-EOSQL
+        DROP USER IF EXISTS 'pma'@'localhost';
+        DROP USER IF EXISTS 'pma'@'127.0.0.1';
+        DROP USER IF EXISTS 'pma'@'::1';
+        FLUSH PRIVILEGES;
+        CREATE DATABASE IF NOT EXISTS phpmyadmin_config_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+        CREATE USER 'pma'@'localhost' IDENTIFIED BY '$PMA_PASSWORD'; GRANT ALL PRIVILEGES ON phpmyadmin_config_db.* TO 'pma'@'localhost';
+        CREATE USER 'pma'@'127.0.0.1' IDENTIFIED BY '$PMA_PASSWORD'; GRANT ALL PRIVILEGES ON phpmyadmin_config_db.* TO 'pma'@'127.0.0.1';
+        CREATE USER 'pma'@'::1' IDENTIFIED BY '$PMA_PASSWORD'; GRANT ALL PRIVILEGES ON phpmyadmin_config_db.* TO 'pma'@'::1';
+        FLUSH PRIVILEGES;
+EOSQL
 
     echo -e "${BLUE}--> Iniciando o contêiner do phpMyAdmin ('$PMA_CONTAINER_NAME')...${NC}"
     podman run -d --name "$PMA_CONTAINER_NAME" --pod "$POD_NAME" \
@@ -433,9 +435,20 @@ configure_mariadb_pod() {
     echo -e "${GREEN}--> Pod com MariaDB e phpMyAdmin configurado com sucesso!${NC}"
     echo -e "${YELLOW}--> phpMyAdmin estará acessível em http://localhost:8081${NC}"
     
-    echo -e "${YELLOW}--> Usuário: root - Senha: '$ROOT_PASSWORD'...${NC}"
-    echo -e "${YELLOW}--> Usuário: pma - Senha: '$PMA_PASSWORD'...${NC}"
-    echo -e "${YELLOW}--> Usuário: '$USER' - Senha: '$USER_PASSWORD'...${NC}"
+    echo -e ""
+    echo -e "${CYAN}Credenciais do Banco de Dados:${NC}"
+    echo -e "--------------------------------------------------"
+    echo -e "  Host:         127.0.0.1"
+    echo -e "  Porta:        3306"
+    echo -e "  Usuário root: root"
+    echo -e "  Senha root:   ${BOLD_GREEN}$ROOT_PASSWORD${NC}"
+    echo -e "--------------------------------------------------"
+    echo -e "  Usuário pma:  pma"
+    echo -e "  Senha pma:    ${BOLD_GREEN}$PMA_PASSWORD${NC}"
+    echo -e "--------------------------------------------------"
+    echo -e "  Usuário app:  $USER"
+    echo -e "  Senha app:    ${BOLD_GREEN}$USER_PASSWORD${NC}"
+    echo -e "--------------------------------------------------"
 }
 
 # --- Função Principal ---
