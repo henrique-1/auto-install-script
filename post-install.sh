@@ -155,28 +155,28 @@ install_web_dev_stack() {
 
     # --- Instala NVM e Node.js ---
     echo -e "${GREEN}--> Baixando e instalando o NVM (Node Version Manager)...${NC}"
-    # ALTERAÇÃO: Verifica se o NVM já está instalado antes de baixar.
+
     if [ ! -d "$HOME/.nvm" ]; then
         curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash
+
+        export NVM_DIR="$HOME/.nvm"
+        [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+        [ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"
+
+        echo -e "${BLUE}--> Instalando a versão 22 do Node.js...${NC}"
+        nvm install 22
+        nvm use 22
+        nvm alias default 22
+
+        echo -e "${BLUE}--> Atualizando o npm para a versão mais recente...${NC}"
+        npm install -g npm@latest
+
+        # --- Instala pnpm ---
+        echo -e "${BLUE}--> Instalando pnpm...${NC}"
+        npm install -g pnpm@latest-10
     else
         echo -e "${YELLOW}--> NVM já está instalado. Pulando download.${NC}"
     fi
-
-    export NVM_DIR="$HOME/.nvm"
-    [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
-    [ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"
-
-    echo -e "${BLUE}--> Instalando a versão 22 do Node.js...${NC}"
-    nvm install 22
-    nvm use 22
-    nvm alias default 22
-
-    echo -e "${BLUE}--> Atualizando o npm para a versão mais recente...${NC}"
-    npm install -g npm@latest
-
-    # --- Instala pnpm ---
-    echo -e "${BLUE}--> Instalando pnpm...${NC}"
-    npm install -g pnpm@latest-10
 
     # --- Instala PHP e extensões ---
     echo -e "${BLUE}--> Instalando PHP e extensões via DNF...${NC}"
@@ -213,7 +213,6 @@ install_web_dev_stack() {
 
     echo -e "${BLUE}--> Instalando o Laravel Installer globalmente...${NC}"
     composer global require laravel/installer
-    cd - > /dev/null
 }
 
 # 7. Instala pnpm e fontes customizadas
