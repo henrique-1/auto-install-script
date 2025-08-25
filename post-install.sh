@@ -400,7 +400,8 @@ configure_mariadb_pod() {
     if podman volume exists "$DB_VOLUME_NAME"; then
         echo -e "${YELLOW}--> Volume '$DB_VOLUME_NAME' encontrado. Removendo para garantir uma inicialização limpa...${NC}"
         podman volume rm -f "$DB_VOLUME_NAME"
-        sleep 60
+        echo -e "${CYAN}--> Aguardando 5 segundos para garantir a sincronização do sistema de arquivos...${NC}"
+        sleep 5
     fi
 
     echo -e "${BLUE}--> Criando o pod '$POD_NAME'...${NC}"
