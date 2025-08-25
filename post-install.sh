@@ -461,6 +461,8 @@ EOSQL
 
 # 12. Deleta o Pod do MariaDB, se houver
 clean_mariadb_pod() {
+    print_header "Excluindo o Pod '$POD_NAME', se houver"
+
     local POD_NAME="mariadb-pod"
     local DB_VOLUME_NAME="mariadb_app_data"
     
