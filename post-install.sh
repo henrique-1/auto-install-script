@@ -392,18 +392,6 @@ configure_mariadb_pod() {
     local PMA_PASSWORD="$(date +%s)$(openssl rand -hex 8)"
     local USER_PASSWORD="$(date +%s)$(openssl rand -hex 8)"
 
-    if podman pod exists "$POD_NAME"; then
-        echo -e "${YELLOW}--> Pod '$POD_NAME' encontrado. Removendo...${NC}"
-        podman pod rm -f "$POD_NAME"
-    fi
-
-    if podman volume exists "$DB_VOLUME_NAME"; then
-        echo -e "${YELLOW}--> Volume '$DB_VOLUME_NAME' encontrado. Removendo para garantir uma inicialização limpa...${NC}"
-        podman volume rm -f "$DB_VOLUME_NAME"
-        echo -e "${CYAN}--> Aguardando 5 segundos para garantir a sincronização do sistema de arquivos...${NC}"
-        sleep 5
-    fi
-
     echo -e "${BLUE}--> Criando o pod '$POD_NAME'...${NC}"
     podman pod create --name "$POD_NAME" -p 3306:3306 -p 8081:80
 
@@ -471,13 +459,34 @@ EOSQL
     echo -e "--------------------------------------------------"
 }
 
+# 12. Deleta o Pod do MariaDB, se houver
+configure_mariadb_pod() {
+    local POD_NAME="mariadb-pod"
+    local DB_VOLUME_NAME="mariadb_app_data"
+    
+    if podman pod exists "$POD_NAME"; then
+        echo -e "${YELLOW}--> Pod '$POD_NAME' encontrado. Removendo...${NC}"
+        podman pod rm -f "$POD_NAME"
+    fi
+
+    if podman volume exists "$DB_VOLUME_NAME"; then
+        echo -e "${YELLOW}--> Volume '$DB_VOLUME_NAME' encontrado. Removendo para garantir uma inicialização limpa...${NC}"
+        podman volume rm -f "$DB_VOLUME_NAME"
+        echo -e "${CYAN}--> Aguardando 5 segundos para garantir a sincronização do sistema de arquivos...${NC}"
+        sleep 5
+    fi
+
+}
+
+
 # --- Função Principal ---
 main() {
     if [[ $EUID -eq 0 ]]; then
        echo -e "${RED}ERRO: Este script não deve ser executado como root. Execute como um usuário normal.${NC}" >&2
        exit 1
     fi
-
+    
+    clean_mariadb_pod
     update_system
     setup_multimedia_and_java
     install_oh_my_bash
