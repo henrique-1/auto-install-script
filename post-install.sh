@@ -422,6 +422,8 @@ configure_mariadb_pod() {
         elapsed_time=$((current_time - start_time))
         if [ $elapsed_time -ge $max_wait_time ]; then
             echo -e "${RED}ERRO: Timeout! O banco de dados não emitiu o sinal de prontidão.${NC}" >&2
+            echo -e "${YELLOW}--> Últimos logs do contêiner '$DB_CONTAINER_NAME':${NC}"
+            podman logs "$DB_CONTAINER_NAME"
             exit 1
         fi
         echo -e "${YELLOW}--> O banco de dados ainda está inicializando... aguardando 5 segundos.${NC}"
