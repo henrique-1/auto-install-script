@@ -460,7 +460,7 @@ EOSQL
 }
 
 # 12. Deleta o Pod do MariaDB, se houver
-configure_mariadb_pod() {
+clean_mariadb_pod() {
     local POD_NAME="mariadb-pod"
     local DB_VOLUME_NAME="mariadb_app_data"
     
