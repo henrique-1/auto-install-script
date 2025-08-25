@@ -408,10 +408,6 @@ configure_mariadb_pod() {
       -e MYSQL_PASSWORD="$USER_PASSWORD" \
       docker.io/library/mariadb:latest
 
-    echo -e "${YELLOW}--> Aguardando o Banco de Dados MariaDB iniciar (120 segundos)...${NC}"
-    sleep 120
-    echo -e "${GREEN}--> Banco de dados está pronto!${NC}"
-
     echo -e "${GREEN}--> Aguardando o banco de dados MariaDB ficar disponível...${NC}"
     local max_retries=30
     local retry_count=0
