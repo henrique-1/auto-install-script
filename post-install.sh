@@ -397,19 +397,14 @@ configure_mariadb_pod() {
         podman pod rm -f "$POD_NAME"
     fi
 
-    sleep 15
-
     if podman volume exists "$DB_VOLUME_NAME"; then
         echo -e "${YELLOW}--> Volume '$DB_VOLUME_NAME' encontrado. Removendo para garantir uma inicialização limpa...${NC}"
         podman volume rm -f "$DB_VOLUME_NAME"
+        sleep 60
     fi
-
-    sleep 15
 
     echo -e "${BLUE}--> Criando o pod '$POD_NAME'...${NC}"
     podman pod create --name "$POD_NAME" -p 3306:3306 -p 8081:80
-
-    sleep 5
 
     echo -e "${BLUE}--> Iniciando o contêiner do MariaDB ('$DB_CONTAINER_NAME')...${NC}"
     podman run -d --name "$DB_CONTAINER_NAME" --pod "$POD_NAME" \
