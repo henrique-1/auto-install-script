@@ -385,6 +385,7 @@ configure_mariadb_pod() {
 
     local POD_NAME="mariadb-pod"
     local DB_CONTAINER_NAME="mariadb-db"
+    local DB_VOLUME_NAME="mariadb_app_data"
     local PMA_CONTAINER_NAME="phpmyadmin-ui"
     
     local ROOT_PASSWORD="$(date +%s)$(openssl rand -hex 8)"
@@ -396,32 +397,37 @@ configure_mariadb_pod() {
         podman pod rm -f "$POD_NAME"
     fi
 
+    if podman volume exists "$DB_VOLUME_NAME"; then
+        echo -e "${YELLOW}--> Volume '$DB_VOLUME_NAME' encontrado. Removendo para garantir uma inicialização limpa...${NC}"
+        podman volume rm -f "$DB_VOLUME_NAME"
+    fi
+
     echo -e "${BLUE}--> Criando o pod '$POD_NAME'...${NC}"
 
     podman pod create --name "$POD_NAME" -p 3306:3306 -p 8081:80
 
     echo -e "${BLUE}--> Iniciando o contêiner do MariaDB ('$DB_CONTAINER_NAME')...${NC}"
     podman run -d --name "$DB_CONTAINER_NAME" --pod "$POD_NAME" \
-      -v mariadb_app_data:/var/lib/mysql:Z \
+      -v "$DB_VOLUME_NAME:/var/lib/mysql:Z" \
       -e MYSQL_ROOT_PASSWORD="$ROOT_PASSWORD" \
       -e MYSQL_USER="$USER" \
       -e MYSQL_PASSWORD="$USER_PASSWORD" \
       docker.io/library/mariadb:latest
 
     echo -e "${GREEN}--> Aguardando o banco de dados MariaDB ficar disponível...${NC}"
-    local max_retries=30
-    local retry_count=0
-    while ! podman exec "$DB_CONTAINER_NAME" mariadb -u root --password="$ROOT_PASSWORD" -e "SELECT 1;" &> /dev/null; do
-        retry_count=$((retry_count + 1))
-        if [ $retry_count -ge $max_retries ]; then
-            echo -e "${RED}ERRO: O banco de dados não ficou pronto a tempo. Verifique os logs do contêiner:${NC}" >&2
-            podman logs "$DB_CONTAINER_NAME"
+    local max_wait_time=180 # 3 minutos de timeout
+    local start_time=$(date +%s)
+    until podman logs "$DB_CONTAINER_NAME" 2>&1 | grep -q "ready for connections"; do
+        current_time=$(date +%s)
+        elapsed_time=$((current_time - start_time))
+        if [ $elapsed_time -ge $max_wait_time ]; then
+            echo -e "${RED}ERRO: Timeout! O banco de dados não emitiu o sinal de prontidão.${NC}" >&2
             exit 1
         fi
-        echo -e "${YELLOW}--> Tentativa $retry_count de $max_retries... Aguardando 5 segundos.${NC}"
+        echo -e "${YELLOW}--> O banco de dados ainda está inicializando... aguardando 5 segundos.${NC}"
         sleep 5
     done
-    echo -e "${BOLD_GREEN}--> Banco de dados está pronto e aceitando conexões!${NC}"
+    echo -e "${BOLD_GREEN}--> Banco de dados está 100% pronto e configurado!${NC}"
 
     echo -e "${BLUE}--> Configurando usuário 'pma' para o phpMyAdmin...${NC}"
     podman exec -i "$DB_CONTAINER_NAME" mariadb -u root --password="$ROOT_PASSWORD" <<-EOSQL
