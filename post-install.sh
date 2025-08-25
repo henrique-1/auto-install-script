@@ -146,7 +146,7 @@ install_dev_tools() {
     echo -e "${BLUE}--> Instalando pacotes: gh, code, podman, docker e dependências...${NC}"
     sudo dnf install -y \
       code podman podman-machine docker-ce docker-ce-cli containerd.io \
-      docker-buildx-plugin docker-compose-plugin
+      docker-buildx-plugin docker-compose-plugin fastfetch
 }
 
 # 6. Instala NVM, Node.js, PHP e Composer
@@ -498,6 +498,8 @@ main() {
     configure_docker
     install_mysql_workbench
     configure_mariadb_pod
+
+    fastfetch
 
     print_header "Instalação Concluída!"
     echo -e "Para que TODAS as alterações (grupos, PATH, fontes, etc.) tenham efeito,"
