@@ -414,22 +414,21 @@ configure_mariadb_pod() {
       -e MYSQL_PASSWORD="$USER_PASSWORD" \
       docker.io/library/mariadb:latest
 
-    echo -e "${GREEN}--> Aguardando o banco de dados MariaDB ficar disponível...${NC}"
-    local max_wait_time=180 # 3 minutos de timeout
-    local start_time=$(date +%s)
-    until podman logs "$DB_CONTAINER_NAME" 2>&1 | grep -q "ready for connections"; do
-        current_time=$(date +%s)
-        elapsed_time=$((current_time - start_time))
-        if [ $elapsed_time -ge $max_wait_time ]; then
-            echo -e "${RED}ERRO: Timeout! O banco de dados não emitiu o sinal de prontidão.${NC}" >&2
+    echo -e "${GREEN}--> Verificando ativamente se o banco de dados está pronto e configurado...${NC}"
+    local max_retries=30
+    local retry_count=0
+    while ! podman exec "$DB_CONTAINER_NAME" mariadb-admin ping -u root --password="$ROOT_PASSWORD" &> /dev/null; do
+        retry_count=$((retry_count + 1))
+        if [ $retry_count -ge $max_retries ]; then
+            echo -e "${RED}ERRO: Timeout! O banco de dados não respondeu com as credenciais corretas.${NC}" >&2
             echo -e "${YELLOW}--> Últimos logs do contêiner '$DB_CONTAINER_NAME':${NC}"
             podman logs "$DB_CONTAINER_NAME"
             exit 1
         fi
-        echo -e "${YELLOW}--> O banco de dados ainda está inicializando... aguardando 5 segundos.${NC}"
+        echo -e "${YELLOW}--> Tentativa $retry_count/$max_retries. Aguardando o banco de dados aceitar as credenciais...${NC}"
         sleep 5
     done
-    echo -e "${BOLD_GREEN}--> Banco de dados está 100% pronto e configurado!${NC}"
+    echo -e "${BOLD_GREEN}--> Sucesso! O banco de dados está 100% operacional.${NC}"
 
     echo -e "${BLUE}--> Configurando usuário 'pma' para o phpMyAdmin...${NC}"
     podman exec -i "$DB_CONTAINER_NAME" mariadb -u root --password="$ROOT_PASSWORD" <<-EOSQL
