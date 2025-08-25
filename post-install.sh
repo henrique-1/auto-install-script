@@ -15,7 +15,7 @@
 #         NOTES:  Execute este script como um usuário normal. Ele solicitará
 #                 a senha de administrador (sudo) quando necessário.
 #        AUTHOR:  Henrique Bissoli Malaman Alonso
-#       VERSION:  2.3
+#       VERSION:  2.4
 #
 # ===================================================================================
 
@@ -412,9 +412,23 @@ configure_mariadb_pod() {
     sleep 120
     echo -e "${GREEN}--> Banco de dados está pronto!${NC}"
 
-    echo -e "${BLUE}--> Configurando usuário 'pma' para o phpMyAdmin...${NC}"
+    echo -e "${GREEN}--> Aguardando o banco de dados MariaDB ficar disponível...${NC}"
+    local max_retries=30
+    local retry_count=0
+    while ! podman exec "$DB_CONTAINER_NAME" mariadb -u root --password="$ROOT_PASSWORD" -e "SELECT 1;" &> /dev/null; do
+        retry_count=$((retry_count + 1))
+        if [ $retry_count -ge $max_retries ]; then
+            echo -e "${RED}ERRO: O banco de dados não ficou pronto a tempo. Verifique os logs do contêiner:${NC}" >&2
+            podman logs "$DB_CONTAINER_NAME"
+            exit 1
+        fi
+        echo -e "${YELLOW}--> Tentativa $retry_count de $max_retries... Aguardando 5 segundos.${NC}"
+        sleep 5
+    done
+    echo -e "${BOLD_GREEN}--> Banco de dados está pronto e aceitando conexões!${NC}"
 
-    podman exec -it "$DB_CONTAINER_NAME" mariadb -u root --password="$ROOT_PASSWORD" <<-EOSQL
+    echo -e "${BLUE}--> Configurando usuário 'pma' para o phpMyAdmin...${NC}"
+    podman exec -i "$DB_CONTAINER_NAME" mariadb -u root --password="$ROOT_PASSWORD" <<-EOSQL
         DROP USER IF EXISTS 'pma'@'localhost';
         DROP USER IF EXISTS 'pma'@'127.0.0.1';
         DROP USER IF EXISTS 'pma'@'::1';
