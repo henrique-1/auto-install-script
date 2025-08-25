@@ -403,8 +403,6 @@ configure_mariadb_pod() {
       -e MYSQL_PASSWORD="$USER_PASSWORD" \
       docker.io/library/mariadb:latest
 
-    sleep 5
-
     echo -e "${GREEN}--> Verificando ativamente se o banco de dados está pronto e configurado...${NC}"
     local max_retries=30
     local retry_count=0
