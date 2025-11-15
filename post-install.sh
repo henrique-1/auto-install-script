@@ -480,11 +480,16 @@ clean_mariadb_pod() {
 install_gnome_extensions() {
     print_header "Instalando Extensões do Gnome"
 
-    echo -e "${BLUE}--> Instalando pipx...${NC}"
-    sudo dnf install -y pipx
+    if ! command -v pipx &> /dev/null; then
+        echo -e "${BLUE}--> Instalando pipx...${NC}"
+        sudo dnf install -y pipx
+    else
+        echo -e "${YELLOW}--> pipx já está instalado. Pulando.${NC}"
+    fi
 
     echo -e "${MAGENTA}--> Garantindo que o pipx estejam na PATH...${NC}"
     pipx ensurepath
+    export PATH="$PATH:$HOME/.local/bin"
 
     echo -e "${BLUE}--> Instalando gnome-extensions-cli pelo pipx...${NC}"
     pipx install gnome-extensions-cli
@@ -505,7 +510,7 @@ install_gnome_extensions() {
         echo -e "${BLUE}--> Instalando a extensão $id pelo gnome-extensions-cli...${NC}"
         gnome-extensions-cli install "$id"
 
-        if[ $? -ne 0]; then
+        if[ $? -ne 0 ]; then
             echo -e "${RED}ERRO: Erro ao instalar a extensão de ID: $id ${NC}" 
         fi
     done
