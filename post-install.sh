@@ -532,6 +532,7 @@ main() {
     configure_docker
     install_mysql_workbench
     configure_mariadb_pod
+    install_gnome_extensions
 
     fastfetch
 
