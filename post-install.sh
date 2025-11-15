@@ -95,7 +95,7 @@ setup_flatpak() {
     # Lista de aplicativos Flatpak para instalar
     local FLATPAK_APPS=(
         com.spotify.Client com.usebruno.Bruno com.discordapp.Discord
-        org.gnome.Extensions com.github.tchx84.Flatseal it.mijorus.gearlever
+        com.github.tchx84.Flatseal it.mijorus.gearlever
         com.mattjakeman.ExtensionManager com.heroicgameslauncher.hgl
         com.github.PintaProject.Pinta app.zen_browser.zen
         io.github.flattool.Warehouse io.podman_desktop.PodmanDesktop
@@ -477,6 +477,41 @@ clean_mariadb_pod() {
 
 }
 
+install_gnome_extensions() {
+    print_header "Instalando Extensões do Gnome"
+
+    echo -e "${BLUE}--> Instalando pipx...${NC}"
+    sudo dnf install -y pipx
+
+    echo -e "${MAGENTA}--> Garantindo que o pipx estejam na PATH...${NC}"
+    pipx ensurepath
+
+    echo -e "${BLUE}--> Instalando gnome-extensions-cli pelo pipx...${NC}"
+    pipx install gnome-extensions-cli
+
+    declare -a EXTENSIONS_IDS=(
+        "1414" # 'Unblank lock screen'
+        "6162" # 'Solaar extension'
+        "307" # 'Dash to Dock'
+        "4839" # 'Clipboard history'
+        "3193" # 'Blur my Shell'
+        "6670" # 'Bluetooth Battery Meter'
+        "615" # 'AppIndicator and KStatusNotifierItem Support'
+        "5446" # 'Quick Settings Tweaks'
+        "5506" # 'User Avatar In Quick Settings'
+    )
+
+    for id in "${EXTENSIONS_IDS[@]}"; do
+        echo -e "${BLUE}--> Instalando a extensão $id pelo gnome-extensions-cli...${NC}"
+        gnome-extensions-cli install "$id"
+
+        if[ $? -ne 0]; then
+            echo -e "${RED}ERRO: Erro ao instalar a extensão de ID: $id ${NC}" 
+        fi
+    done
+
+    echo -e "${GREEN}--> Instalação das extensões finalizada com sucesso!${NC}"
+}
 
 # --- Função Principal ---
 main() {
