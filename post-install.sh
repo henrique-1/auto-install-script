@@ -518,6 +518,72 @@ install_gnome_extensions() {
     echo -e "${GREEN}--> Instalação das extensões finalizada com sucesso!${NC}"
 }
 
+install_openrgb_service() {
+    print_header "Instalando e Configurando OpenRGB Server"
+
+    echo -e "${BLUE}--> Instalando pacotes: openrgb, i2c-tools, openrgb-udev-rules...${NC}"
+    sudo dnf install -y openrgb i2c-tools openrgb-udev-rules
+
+    # --- Configuração de Kernel (I2C) ---
+    echo -e "${MAGENTA}--> Configurando módulos do kernel (i2c-dev)...${NC}"
+    sudo modprobe i2c-dev
+    if [ ! -f "/etc/modules-load.d/i2c-dev.conf" ]; then
+        echo "i2c-dev" | sudo tee /etc/modules-load.d/i2c-dev.conf > /dev/null
+    fi
+
+    # --- Localização Dinâmica do Binário ---
+    local OPENRGB_BIN
+    OPENRGB_BIN=$(which openrgb)
+
+    if [ -z "$OPENRGB_BIN" ]; then
+        echo -e "${RED}ERRO CRÍTICO: Binário 'openrgb' não encontrado. O serviço não será criado.${NC}"
+        return 1
+    fi
+    echo -e "${GREEN}--> Binário OpenRGB localizado em: ${OPENRGB_BIN}${NC}"
+
+    # --- Criação do Serviço Systemd ---
+    # Alterações:
+    # 1. Type=simple (para manter o processo rodando)
+    # 2. --server (ativa o modo servidor)
+    # 3. --no-gui (obrigatório para rodar headless/sem monitor)
+    # 4. Mantivemos a cor estática (-c 080808) na inicialização
+    
+    echo -e "${BLUE}--> Criando arquivo de serviço Systemd (/etc/systemd/system/openrgb.service)...${NC}"
+    
+    sudo bash -c "cat > /etc/systemd/system/openrgb.service" <<EOF
+[Unit]
+Description=OpenRGB SDK Server
+After=network.target lm_sensors.service
+
+[Service]
+Type=simple
+ExecStart=${OPENRGB_BIN} --no-gui --server --port 6742 -c 080808 -m Direct
+User=nobody
+Group=i2c
+Restart=always
+RestartSec=5
+ProtectSystem=full
+ProtectHome=yes
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+    # --- Habilitar e Iniciar ---
+    echo -e "${BLUE}--> Habilitando o serviço openrgb...${NC}"
+    sudo systemctl daemon-reload
+    sudo systemctl enable openrgb.service
+    
+    echo -e "${BLUE}--> Tentando iniciar o serviço...${NC}"
+    # Nota: Em instalações limpas, pode ser necessário rebootar para as regras udev pegarem
+    # antes que o serviço funcione perfeitamente com user 'nobody'.
+    if sudo systemctl start openrgb.service; then
+        echo -e "${BOLD_GREEN}--> Serviço OpenRGB Server iniciado com sucesso.${NC}"
+    else
+        echo -e "${YELLOW}--> Aviso: O serviço foi habilitado, mas não iniciou imediatamente (provavelmente aguardando reboot para regras udev/permissões).${NC}"
+    fi
+}
+
 # --- Função Principal ---
 main() {
     if [[ $EUID -eq 0 ]]; then
@@ -538,6 +604,7 @@ main() {
     install_mysql_workbench
     configure_mariadb_pod
     install_gnome_extensions
+    install_openrgb_service
 
     fastfetch
 
