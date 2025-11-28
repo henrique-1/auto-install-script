@@ -522,15 +522,39 @@ install_openrgb_service() {
     print_header "Instalando e Configurando OpenRGB Server"
 
     echo -e "${BLUE}--> Instalando pacotes: openrgb, i2c-tools, openrgb-udev-rules...${NC}"
-    sudo dnf install -y openrgb i2c-tools openrgb-udev-rules
+    sudo dnf install -y automake gcc-c++ qt5-qtbase-devel hidapi-devel libusbx-devel mbedtls-devel i2c-tools openrgb openrgb-udev-rules lm-sensors
+    
+    # --- Configuração Inteligente de Módulos (I2C) ---
+    echo -e "${MAGENTA}--> Detectando hardware e configurando módulos I2C...${NC}"
 
-    # --- Configuração de Kernel (I2C) ---
-    echo -e "${MAGENTA}--> Configurando módulos do kernel (i2c-dev)...${NC}"
+    # 1. Carrega o módulo base obrigatório
     sudo modprobe i2c-dev
     if [ ! -f "/etc/modules-load.d/i2c-dev.conf" ]; then
         echo "i2c-dev" | sudo tee /etc/modules-load.d/i2c-dev.conf > /dev/null
     fi
 
+    # 2. Detecta CPU (Intel vs AMD) e carrega o driver de chipset apropriado
+    local CPU_VENDOR=$(grep -m 1 'vendor_id' /proc/cpuinfo | awk '{print $3}')
+    local MODULE_TO_LOAD=""
+
+    if [[ "$CPU_VENDOR" == "GenuineIntel" ]]; then
+        echo -e "${GREEN}--> Hardware Intel detectado. Configurando i2c-i801...${NC}"
+        MODULE_TO_LOAD="i2c-i801"
+    elif [[ "$CPU_VENDOR" == "AuthenticAMD" ]]; then
+        echo -e "${GREEN}--> Hardware AMD detectado. Configurando i2c-piix4...${NC}"
+        MODULE_TO_LOAD="i2c-piix4"
+    else
+        echo -e "${YELLOW}--> Fabricante da CPU não identificado ($CPU_VENDOR). Pulando driver de chipset específico.${NC}"
+    fi
+    
+    # Aplica a carga e persistência do driver de chipset, se identificado
+    if [ -n "$MODULE_TO_LOAD" ]; then
+        sudo modprobe "$MODULE_TO_LOAD" || echo -e "${YELLOW}--> Aviso: Falha ao carregar $MODULE_TO_LOAD.${NC}"
+        if [ ! -f "/etc/modules-load.d/openrgb-chipset.conf" ]; then
+            echo "$MODULE_TO_LOAD" | sudo tee /etc/modules-load.d/openrgb-chipset.conf > /dev/null
+        fi
+    fi
+    
     # --- Localização Dinâmica do Binário ---
     local OPENRGB_BIN
     OPENRGB_BIN=$(which openrgb)
