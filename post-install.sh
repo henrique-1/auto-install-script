@@ -497,7 +497,7 @@ configure_postgres_pod() {
 
     echo -e "${BLUE}--> Iniciando o contêiner do PostgreSQL ('$DB_CONTAINER')...${NC}"
     podman run -d --name "$DB_CONTAINER" --pod "$POD_NAME" \
-      -v postgres_data:/var/lib/postgresql/data:Z \
+      -v postgres_data:/var/lib/postgresql:Z \
       -e POSTGRES_USER="$DB_USER" \
       -e POSTGRES_PASSWORD="$DB_PASS" \
       -e POSTGRES_DB="$DB_NAME" \
