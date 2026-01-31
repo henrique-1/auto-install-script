@@ -504,14 +504,39 @@ configure_postgres_pod() {
       docker.io/library/postgres:latest
 
     echo -e "${GREEN}--> Aguardando o PostgreSQL inicializar...${NC}"
-    local max_retries=30
+    local max_retries=60
     local retry_count=0
-    while ! podman exec "$DB_CONTAINER" pg_isready -U "$DB_USER" -d "$DB_NAME" &> /dev/null; do
+    
+    # while ! podman exec "$DB_CONTAINER" pg_isready -U "$DB_USER" -d "$DB_NAME" &> /dev/null; do
+    #     retry_count=$((retry_count + 1))
+    #     if [ $retry_count -ge $max_retries ]; then
+    #         echo -e "${RED}ERRO: Timeout! O PostgreSQL não ficou pronto a tempo.${NC}" >&2
+    #         exit 1
+    #     fi
+    #     echo -e "${YELLOW}--> Tentativa $retry_count/$max_retries. Aguardando...${NC}"
+    #     sleep 3
+    # done
+
+    while true; do
+        if podman exec "$DB_CONTAINER" pg_isready -U "$DB_USER" -d "$DB_NAME" &> /dev/null; then
+            break
+        fi
+
+        if [[ "$(podman inspect -f '{{.State.Running}}' "$DB_CONTAINER")" != "true" ]]; then
+            echo -e "${RED}ERRO CRÍTICO: O contêiner '$DB_CONTAINER' parou de rodar inesperadamente!${NC}"
+            echo -e "${YELLOW}--> Logs do erro:${NC}"
+            podman logs "$DB_CONTAINER"
+            exit 1
+        fi
+
         retry_count=$((retry_count + 1))
         if [ $retry_count -ge $max_retries ]; then
             echo -e "${RED}ERRO: Timeout! O PostgreSQL não ficou pronto a tempo.${NC}" >&2
+            echo -e "${YELLOW}--> Verifique os logs para mais detalhes:${NC}"
+            podman logs "$DB_CONTAINER"
             exit 1
         fi
+
         echo -e "${YELLOW}--> Tentativa $retry_count/$max_retries. Aguardando...${NC}"
         sleep 3
     done
