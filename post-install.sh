@@ -550,7 +550,7 @@ configure_postgres_pod() {
       docker.io/dpage/pgadmin4:latest
 
     echo -e "${GREEN}--> Pod PostgreSQL e pgAdmin configurado com sucesso!${NC}"
-    echo -e "${YELLOW}--> pgAdmin acessível em http://localhost:8088${NC}"
+    echo -e "${YELLOW}--> pgAdmin acessível em http://localhost:8082${NC}"
     
     echo -e ""
     echo -e "${CYAN}Credenciais do PostgreSQL:${NC}"
