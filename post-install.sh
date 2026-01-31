@@ -336,10 +336,13 @@ configure_docker() {
     print_header "Configurando o Docker e instalando o Docker Desktop"
     
     sudo systemctl enable --now docker
-    sudo groupadd docker || true
-    sudo usermod -aG docker "$USER"
+    sudo groupadd -f docker
+    if ! groups "$USER" | grep -q "\bdocker\b"; then
+        echo -e "${BLUE}--> Adicionando usuário '$USER' ao grupo docker...${NC}"
+        sudo usermod -aG docker "$USER"
+    fi
     
-    if ! dnf list installed docker-desktop &> /dev/null; then
+    if ! rpm -q docker-desktop &> /dev/null; then
         echo -e "${GREEN}--> Baixando e instalando o Docker Desktop...${NC}"
         local DOCKER_DESKTOP_URL="https://desktop.docker.com/linux/main/amd64/docker-desktop-x86_64.rpm"
         local DOCKER_DESKTOP_RPM="$HOME/Downloads/docker-desktop.rpm"
