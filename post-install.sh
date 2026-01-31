@@ -344,7 +344,6 @@ configure_docker() {
         local DOCKER_DESKTOP_URL="https://desktop.docker.com/linux/main/amd64/docker-desktop-x86_64.rpm"
         local DOCKER_DESKTOP_RPM="$HOME/Downloads/docker-desktop.rpm"
         
-        # Alteração aqui: adicionado --http1.1 e -C - para maior robustez
         curl -L --http1.1 -C - "$DOCKER_DESKTOP_URL" -o "$DOCKER_DESKTOP_RPM"
         
         sudo dnf install -y "$DOCKER_DESKTOP_RPM"
@@ -353,6 +352,7 @@ configure_docker() {
         echo -e "${YELLOW}--> Docker Desktop já está instalado. Pulando.${NC}"
     fi
 }
+
 # 10. Configura Pod com MariaDB e phpMyAdmin
 configure_mariadb_pod() {
     print_header "Configurando Pod com MariaDB e phpMyAdmin"
