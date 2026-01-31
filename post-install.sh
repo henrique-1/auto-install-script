@@ -508,9 +508,8 @@ install_gnome_extensions() {
 
     for id in "${EXTENSIONS_IDS[@]}"; do
         echo -e "${BLUE}--> Instalando a extensão $id pelo gnome-extensions-cli...${NC}"
-        gnome-extensions-cli install "$id"
-
-        if[ $? -ne 0 ]; then
+        
+        if ! gnome-extensions-cli install "$id"; then
             echo -e "${RED}ERRO: Erro ao instalar a extensão de ID: $id ${NC}" 
         fi
     done
