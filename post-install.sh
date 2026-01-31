@@ -351,34 +351,7 @@ configure_docker() {
     fi
 }
 
-# 10. Instala o MySQL Workbench
-install_mysql_workbench() {
-    print_header "Instalando o MySQL Workbench"
-    
-    if ! dnf list installed mysql-workbench-community &> /dev/null; then
-        # Define o diretório de downloads e garante que ele exista
-        local DOWNLOAD_DIR="$HOME/Downloads"
-        mkdir -p "$DOWNLOAD_DIR"
-
-        # URL e nome do arquivo RPM
-        # Nota: A URL aponta para uma versão específica do Workbench para o Fedora 40.
-        # Pode ser necessário atualizar esta URL no futuro.
-        local WORKBENCH_URL="https://downloads.mysql.com/archives/get/p/8/file/mysql-workbench-community-8.0.42-1.fc40.x86_64.rpm"
-        local WORKBENCH_RPM="$DOWNLOAD_DIR/mysql-workbench-community.rpm"
-        
-        echo -e "${GREEN}--> Baixando o MySQL Workbench...${NC}"
-        curl -L "$WORKBENCH_URL" -o "$WORKBENCH_RPM"
-        
-        echo -e "${BLUE}--> Instalando o MySQL Workbench (resolvendo dependências com DNF)...${NC}"
-        sudo dnf install -y "$WORKBENCH_RPM"
-        
-        rm "$WORKBENCH_RPM"
-    else
-        echo -e "${YELLOW}--> MySQL Workbench já está instalado. Pulando.${NC}"
-    fi
-}
-
-# 11. Configura Pod com MariaDB e phpMyAdmin
+# 10. Configura Pod com MariaDB e phpMyAdmin
 configure_mariadb_pod() {
     print_header "Configurando Pod com MariaDB e phpMyAdmin"
 
@@ -458,7 +431,7 @@ EOSQL
     echo -e "--------------------------------------------------"
 }
 
-# 12. Deleta o Pod do MariaDB, se houver
+# 11. Deleta o Pod do MariaDB, se houver
 clean_mariadb_pod() {
     local POD_NAME="mariadb-pod"
     local DB_VOLUME_NAME="mariadb_app_data"
@@ -475,6 +448,92 @@ clean_mariadb_pod() {
         sleep 5
     fi
 
+}
+
+# 12. Deleta o Pod do PostgreSQL, se houver
+clean_postgres_pod() {
+    local POD_NAME="postgres-pod"
+    local DB_VOLUME="postgres_data"
+    local UI_VOLUME="pgadmin_data"
+    
+    if podman pod exists "$POD_NAME"; then
+        echo -e "${YELLOW}--> Pod '$POD_NAME' encontrado. Removendo...${NC}"
+        podman pod rm -f "$POD_NAME"
+    fi
+
+    for vol in "$DB_VOLUME" "$UI_VOLUME"; do
+        if podman volume exists "$vol"; then
+            echo -e "${YELLOW}--> Volume '$vol' encontrado. Removendo...${NC}"
+            podman volume rm -f "$vol"
+        fi
+    done
+    
+    echo -e "${CYAN}--> Sincronizando sistema de arquivos para o Postgres...${NC}"
+    sleep 3
+}
+
+# 13. Configura Pod com PostgreSQL e pgAdmin 4
+configure_postgres_pod() {
+    print_header "Configurando Pod com PostgreSQL e pgAdmin"
+
+    local POD_NAME="postgres-pod"
+    local DB_CONTAINER="postgres-db"
+    local UI_CONTAINER="pgadmin-ui"
+    
+    # Credenciais conforme solicitado
+    local DB_USER="$USER"
+    local DB_PASS="$(date +%s)$(openssl rand -hex 8)"
+    local DB_NAME="default_db"
+    local ADMIN_EMAIL="admin@local.com"
+    local ADMIN_PASS="$(date +%s)$(openssl rand -hex 8)"
+
+    echo -e "${BLUE}--> Criando o pod '$POD_NAME'...${NC}"
+    podman pod create --name "$POD_NAME" -p 5432:5432 -p 8088:80
+
+    echo -e "${BLUE}--> Iniciando o contêiner do PostgreSQL ('$DB_CONTAINER')...${NC}"
+    podman run -d --name "$DB_CONTAINER" --pod "$POD_NAME" \
+      -v postgres_data:/var/lib/postgresql/data:Z \
+      -e POSTGRES_USER="$DB_USER" \
+      -e POSTGRES_PASSWORD="$DB_PASS" \
+      -e POSTGRES_DB="$DB_NAME" \
+      docker.io/library/postgres:latest
+
+    echo -e "${GREEN}--> Aguardando o PostgreSQL inicializar...${NC}"
+    local max_retries=30
+    local retry_count=0
+    while ! podman exec "$DB_CONTAINER" pg_isready -U "$DB_USER" -d "$DB_NAME" &> /dev/null; do
+        retry_count=$((retry_count + 1))
+        if [ $retry_count -ge $max_retries ]; then
+            echo -e "${RED}ERRO: Timeout! O PostgreSQL não ficou pronto a tempo.${NC}" >&2
+            exit 1
+        fi
+        echo -e "${YELLOW}--> Tentativa $retry_count/$max_retries. Aguardando...${NC}"
+        sleep 3
+    done
+
+    echo -e "${BLUE}--> Iniciando o contêiner do pgAdmin 4 ('$UI_CONTAINER')...${NC}"
+    podman run -d --name "$UI_CONTAINER" --pod "$POD_NAME" \
+      -v pgadmin_data:/var/lib/pgadmin:Z \
+      -e PGADMIN_DEFAULT_EMAIL="$ADMIN_EMAIL" \
+      -e PGADMIN_DEFAULT_PASSWORD="$ADMIN_PASS" \
+      -e PGADMIN_CONFIG_SERVER_MODE='False' \
+      docker.io/dpage/pgadmin4:latest
+
+    echo -e "${GREEN}--> Pod PostgreSQL e pgAdmin configurado com sucesso!${NC}"
+    echo -e "${YELLOW}--> pgAdmin acessível em http://localhost:8088${NC}"
+    
+    echo -e ""
+    echo -e "${CYAN}Credenciais do PostgreSQL:${NC}"
+    echo -e "--------------------------------------------------"
+    echo -e "  Host:           127.0.0.1"
+    echo -e "  Porta:          5432"
+    echo -e "  Usuário DB:     $DB_USER"
+    echo -e "  Senha DB:       ${BOLD_GREEN}$DB_PASS${NC}"
+    echo -e "  Database:       $DB_NAME"
+    echo -e "--------------------------------------------------"
+    echo -e "  Login pgAdmin:  $ADMIN_EMAIL"
+    echo -e "  Senha pgAdmin:  ${BOLD_GREEN}$ADMIN_PASS${NC}"
+    echo -e "--------------------------------------------------"
 }
 
 install_gnome_extensions() {
@@ -615,6 +674,8 @@ main() {
     fi
     
     clean_mariadb_pod
+    clean_postgres_pod
+    
     update_system
     setup_multimedia_and_java
     install_oh_my_bash
@@ -624,8 +685,8 @@ main() {
     install_fonts
     install_flutter_and_jetbrains
     configure_docker
-    install_mysql_workbench
     configure_mariadb_pod
+    configure_postgres_pod
     install_gnome_extensions
     install_openrgb_service
 
