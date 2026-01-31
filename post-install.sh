@@ -488,7 +488,7 @@ configure_postgres_pod() {
     local ADMIN_PASS="$(date +%s)$(openssl rand -hex 8)"
 
     echo -e "${BLUE}--> Criando o pod '$POD_NAME'...${NC}"
-    podman pod create --name "$POD_NAME" -p 5432:5432 -p 8088:80
+    podman pod create --name "$POD_NAME" -p 5432:5432 -p 8082:80
 
     echo -e "${BLUE}--> Iniciando o contêiner do PostgreSQL ('$DB_CONTAINER')...${NC}"
     podman run -d --name "$DB_CONTAINER" --pod "$POD_NAME" \
@@ -516,7 +516,7 @@ configure_postgres_pod() {
       -v pgadmin_data:/var/lib/pgadmin:Z \
       -e PGADMIN_DEFAULT_EMAIL="$ADMIN_EMAIL" \
       -e PGADMIN_DEFAULT_PASSWORD="$ADMIN_PASS" \
-      -e PGADMIN_CONFIG_SERVER_MODE='False' \
+      -e PGADMIN_CONFIG_SERVER_MODE='True' \
       docker.io/dpage/pgadmin4:latest
 
     echo -e "${GREEN}--> Pod PostgreSQL e pgAdmin configurado com sucesso!${NC}"
