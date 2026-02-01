@@ -3,19 +3,9 @@
 # ===================================================================================
 #
 #          FILE:  post-install.sh
-#
-#         USAGE:  ./post-install.sh
-#
-#   DESCRIPTION:  Script para automatizar a instalação e configuração de
-#                 programas em uma nova instalação do Fedora.
-#
-#       OPTIONS:  ---
-#  REQUIREMENTS:  Acesso à internet e privilégios de superusuário (sudo).
-#          BUGS:  ---
-#         NOTES:  Execute este script como um usuário normal. Ele solicitará
-#                 a senha de administrador (sudo) quando necessário.
-#        AUTHOR:  Henrique Bissoli Malaman Alonso
-#       VERSION:  2.4
+#   DESCRIPTION:  Script híbrido para Fedora e Pop!_OS / Ubuntu.
+#        AUTHOR:  Henrique Bissoli Malaman Alonso (Refatorado para Multi-Distro)
+#       VERSION:  3.0
 #
 # ===================================================================================
 
@@ -23,6 +13,15 @@
 set -e
 # Garante que o status de saída de um pipeline seja o do último comando a falhar.
 set -o pipefail
+
+# --- Detecção de Sistema ---
+if [ -f /etc/os-release ]; then
+    . /etc/os-release
+    DISTRO=$ID
+else
+    echo "Não foi possível detectar a distribuição."
+    exit 1
+fi
 
 # --- Definição de Cores ---
 CYAN='\e[0;36m'
@@ -34,58 +33,92 @@ MAGENTA='\e[0;35m'
 BOLD_GREEN='\e[1;32m'
 NC='\e[0m' # No Color (Reset)
 
-# Função para imprimir um cabeçalho de seção formatado.
 print_header() {
     printf "\n${CYAN}======================================================================${NC}\n"
     printf "${CYAN}  %s${NC}\n" "$1"
     printf "${CYAN}======================================================================${NC}\n"
 }
 
-# --- Funções de Instalação ---
 
-# 1. Atualiza o sistema
-update_system() {
-    print_header "Atualizando o sistema com DNF"
-    sudo dnf upgrade -y
-}
-
-# 2. Instala RPM Fusion, Java e Codecs Multimídia
-setup_multimedia_and_java() {
-    print_header "Instalando RPM Fusion, Java e Codecs Multimídia"
-
-    echo -e "${MAGENTA}--> Adicionando repositórios RPM Fusion (free e non-free)...${NC}"
-    sudo dnf install -y \
-      https://download1.rpmfusion.org/free/fedora/rpmfusion-free-release-"$(rpm -E %fedora)".noarch.rpm \
-      https://download1.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-"$(rpm -E %fedora)".noarch.rpm
-
-    echo -e "${BLUE}--> Atualizando o grupo de pacotes 'core'...${NC}"
-    sudo dnf group upgrade -y core
-
-    echo -e "${BLUE}--> Instalando Java, pacotes multimídia e codecs...${NC}"
-    sudo dnf group install -y multimedia
-    sudo dnf install -y \
-      java-latest-openjdk.x86_64 \
-      gstreamer1-plugin-openh264 \
-      mozilla-openh264 \
-      dnf5-plugins \
-      dnf-plugins-core
-}
-
-# 3. Instala o Oh My Bash
-install_oh_my_bash() {
-    print_header "Instalando o Oh My Bash"
-    if [ -d "$HOME/.oh-my-bash" ]; then
-        echo -e "${YELLOW}--> Oh My Bash já está instalado. Pulando.${NC}"
-    else
-        echo -e "${BLUE}--> Instalando Oh My Bash...${NC}"
-        bash -c "$(curl -fsSL https://raw.githubusercontent.com/ohmybash/oh-my-bash/master/tools/install.sh)" "" --unattended
+pkg_install() {
+    if [[ "$DISTRO" == "fedora" ]]; then
+        sudo dnf install -y "$@"
+    elif [[ "$DISTRO" == "pop" || "$DISTRO" == "ubuntu" ]]; then
+        sudo apt update && sudo apt install -y "$@"
     fi
 }
 
-# 4. Configura o Flatpak e instala os aplicativos
+update_system() {
+    print_header "Atualizando o sistema"
+    if [[ "$DISTRO" == "fedora" ]]; then
+        sudo dnf upgrade -y
+    else
+        sudo apt update && sudo apt full-upgrade -y && sudo apt autoremove -y
+    fi
+}
+
+setup_multimedia_and_base_dependencies() {
+    print_header "Instalando Codecs e Dependências Base"
+
+    if [[ "$DISTRO" == "fedora" ]]; then
+        echo -e "${MAGENTA}--> Verificando repositórios RPM Fusion...${NC}"
+        if ! rpm -q rpmfusion-free-release > /dev/null 2>&1; then
+            echo -e "${MAGENTA}--> Adicionando repositórios RPM Fusion (free e non-free)...${NC}"
+            sudo dnf install -y \
+              https://download1.rpmfusion.org/free/fedora/rpmfusion-free-release-"$(rpm -E %fedora)".noarch.rpm \
+              https://download1.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-"$(rpm -E %fedora)".noarch.rpm
+        fi
+        
+        echo -e "${BLUE}--> Atualizando o grupo de pacotes 'core'...${NC}"
+        sudo dnf group upgrade -y core
+
+        echo -e "${BLUE}--> Instalando Java, pacotes multimídia e codecs...${NC}"
+        sudo dnf group install -y multimedia
+        
+        pkg_install \
+          java-latest-openjdk.x86_64 \
+          gstreamer1-plugin-openh264 \
+          mozilla-openh264 \
+          dnf5-plugins \
+          dnf-plugins-core \
+          unzip curl wget
+    else
+        echo -e "${BLUE}--> Preparando instalação para Pop!_OS...${NC}"
+        
+        echo "ttf-mscorefonts-installer msttcorefonts/accepted-mscorefonts-eula select true" | sudo debconf-set-selections
+        
+        pkg_install \
+          ubuntu-restricted-extras \
+          curl wget unzip \
+          build-essential \
+          software-properties-common \
+          gpg \
+          openjdk-17-jdk
+    fi
+}
+
+install_oh_my_bash() {
+    print_header "Instalando o Oh My Bash"
+    
+    if [ -d "$HOME/.oh-my-bash" ]; then
+        echo -e "${YELLOW}--> Oh My Bash já está instalado. Pulando.${NC}"
+        return 0
+    fi
+
+    if ! command -v curl &> /dev/null || ! command -v git &> /dev/null; then
+        echo -e "${RED}ERRO: curl ou git não encontrados. Instale-os antes de prosseguir.${NC}"
+        return 1
+    fi
+
+    echo -e "${BLUE}--> Instalando Oh My Bash...${NC}"
+    bash -c "$(curl -fsSL https://raw.githubusercontent.com/ohmybash/oh-my-bash/master/tools/install.sh)" "" --unattended
+}
+
 setup_flatpak() {
     print_header "Configurando o Flatpak e instalando aplicativos"
-    sudo dnf install -y flatpak
+    
+    echo -e "${BLUE}--> Garantindo que o Flatpak está instalado...${NC}"
+    pkg_install flatpak
 
     echo -e "${MAGENTA}--> Adicionando e habilitando o repositório Flathub...${NC}"
     flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
@@ -94,133 +127,182 @@ setup_flatpak() {
 
     # Lista de aplicativos Flatpak para instalar
     local FLATPAK_APPS=(
-        com.spotify.Client com.usebruno.Bruno com.discordapp.Discord
-        com.github.tchx84.Flatseal it.mijorus.gearlever
-        com.mattjakeman.ExtensionManager com.heroicgameslauncher.hgl
-        com.github.PintaProject.Pinta app.zen_browser.zen
-        io.github.flattool.Warehouse io.podman_desktop.PodmanDesktop
+        com.spotify.Client
+        com.usebruno.Bruno
+        com.discordapp.Discord
+        com.github.tchx84.Flatseal
+        it.mijorus.gearlever
+        com.mattjakeman.ExtensionManager
+        com.heroicgameslauncher.hgl
+        com.github.PintaProject.Pinta
+        app.zen_browser.zen
+        io.github.flattool.Warehouse
+        io.podman_desktop.PodmanDesktop
     )
 
     echo -e "${BLUE}--> Instalando aplicativos via Flatpak...${NC}"
+    
     for app in "${FLATPAK_APPS[@]}"; do
-        if flatpak info "$app" > /dev/null 2>&1; then
+        if flatpak list --columns=application | grep -q "^$app$"; then
             echo -e "${YELLOW}--> O aplicativo '$app' já está instalado. Pulando.${NC}"
         else
             echo -e "${BLUE}--> Instalando: $app${NC}"
+
             flatpak install -y flathub "$app"
         fi
     done
 }
 
-# 5. Instala ferramentas de desenvolvimento (VS Code, GitHub CLI, Docker, Podman)
 install_dev_tools() {
-    print_header "Instalando Ferramentas de Desenvolvimento"
+    print_header "Configurando Repositórios e Ferramentas de Desenvolvimento"
 
-    # --- Adiciona repositórios de terceiros ---
     echo -e "${MAGENTA}--> Adicionando repositórios necessários...${NC}"
 
-    if [ ! -f "/etc/yum.repos.d/gh-cli.repo" ]; then
-        echo -e "${MAGENTA}--> Adicionando repositório do GitHub CLI...${NC}"
-        sudo dnf config-manager addrepo --from-repofile=https://cli.github.com/packages/rpm/gh-cli.repo
-    else
-        echo -e "${YELLOW}--> Repositório do GitHub CLI já existe. Pulando.${NC}"
-    fi
-    sudo dnf install -y gh --repo gh-cli
+    if [[ "$DISTRO" == "fedora" ]]; then
+        if [ ! -f "/etc/yum.repos.d/gh-cli.repo" ]; then
+            echo -e "${MAGENTA}--> Adicionando repositório do GitHub CLI...${NC}"
+            sudo dnf config-manager addrepo --from-repofile=https://cli.github.com/packages/rpm/gh-cli.repo
+        fi
 
-    if [ ! -f "/etc/yum.repos.d/vscode.repo" ]; then
-        echo -e "${MAGENTA}--> Adicionando repositório do Visual Studio Code...${NC}"
-        sudo rpm --import https://packages.microsoft.com/keys/microsoft.asc
-        echo -e "[code]\nname=Visual Studio Code\nbaseurl=https://packages.microsoft.com/yumrepos/vscode\nenabled=1\nautorefresh=1\ntype=rpm-md\ngpgcheck=1\ngpgkey=https://packages.microsoft.com/keys/microsoft.asc" | sudo tee /etc/yum.repos.d/vscode.repo > /dev/null    
-    else
-        echo -e "${YELLOW}--> Repositório do Visual Studio Code já existe. Pulando.${NC}"
-    fi
+        echo -e "${BLUE}--> Instalando GitHub CLI no Fedora...${NC}"
+        sudo dnf install -y gh --repo gh-cli
 
-    if [ ! -f "/etc/yum.repos.d/docker-ce.repo" ]; then
-        echo -e "${MAGENTA}--> Adicionando repositório do Docker...${NC}"
-        sudo dnf-3 config-manager --add-repo https://download.docker.com/linux/fedora/docker-ce.repo
-    else
-        echo -e "${YELLOW}--> Repositório do Docker já existe. Pulando.${NC}"
-    fi
+        if [ ! -f "/etc/yum.repos.d/vscode.repo" ]; then
+            echo -e "${MAGENTA}--> Adicionando repositório do Visual Studio Code...${NC}"
+            sudo rpm --import https://packages.microsoft.com/keys/microsoft.asc
+            echo -e "[code]\nname=Visual Studio Code\nbaseurl=https://packages.microsoft.com/yumrepos/vscode\nenabled=1\nautorefresh=1\ntype=rpm-md\ngpgcheck=1\ngpgkey=https://packages.microsoft.com/keys/microsoft.asc" | sudo tee /etc/yum.repos.d/vscode.repo > /dev/null    
+        fi
     
-    # --- Instala pacotes via DNF ---
-    echo -e "${BLUE}--> Instalando pacotes: gh, code, podman, docker e dependências...${NC}"
-    sudo dnf install -y \
-      code podman podman-machine docker-ce docker-ce-cli containerd.io \
-      docker-buildx-plugin docker-compose-plugin fastfetch
+        if [ ! -f "/etc/yum.repos.d/docker-ce.repo" ]; then
+            echo -e "${MAGENTA}--> Adicionando repositório do Docker...${NC}"
+            sudo dnf-3 config-manager --add-repo https://download.docker.com/linux/fedora/docker-ce.repo
+        fi
+
+        echo -e "${BLUE}--> Instalando pacotes de dev no Fedora...${NC}"
+        pkg_install \
+          code podman podman-machine docker-ce docker-ce-cli containerd.io \
+          docker-buildx-plugin docker-compose-plugin fastfetch
+    else
+        sudo mkdir -p -m 755 /etc/apt/keyrings
+        
+        # GH CLI
+        if [ ! -f "/etc/apt/keyrings/githubcli-archive-keyring.gpg" ]; then
+            echo -e "${MAGENTA}--> Adicionando repositório do GitHub CLI...${NC}"
+            wget -qO- https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo tee /etc/apt/keyrings/githubcli-archive-keyring.gpg > /dev/null
+            echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null
+        fi
+        
+        # VS Code
+        if [ ! -f "/etc/apt/keyrings/packages.microsoft.gpg" ]; then
+            echo -e "${MAGENTA}--> Adicionando repositório do Visual Studio Code...${NC}"
+            wget -qO- https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor | sudo tee /etc/apt/keyrings/packages.microsoft.gpg > /dev/null
+            echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/packages.microsoft.gpg] https://packages.microsoft.com/repos/code stable main" | sudo tee /etc/apt/sources.list.d/vscode.list > /dev/null
+        fi
+    
+        # Docker
+        if [ ! -f "/etc/apt/keyrings/docker.gpg" ]; then
+            echo -e "${MAGENTA}--> Adicionando repositório do Docker...${NC}"
+            wget -qO- https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor | sudo tee /etc/apt/keyrings/docker.gpg > /dev/null
+            echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+        fi
+
+        echo -e "${BLUE}--> Atualizando índices do APT...${NC}"
+        sudo apt update
+
+        echo -e "${BLUE}--> Instalando pacotes de dev no Pop!_OS...${NC}"
+        # Removido podman-machine (não existe no APT com esse nome)
+        pkg_install code gh docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin podman fastfetch
+    fi
 }
 
-# 6. Instala NVM, Node.js, PHP e Composer
-install_web_dev_stack() {
-    print_header "Instalando Stack de Desenvolvimento Web (NVM, Node.js, PHP, Composer)"
+install_web_stack(){
+    print_header "Instalando PHP e Composer"
 
-    # --- Instala NVM e Node.js ---
-    echo -e "${GREEN}--> Baixando e instalando o NVM (Node Version Manager)...${NC}"
-
-    if [ ! -d "$HOME/.nvm" ]; then
-        curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash
-
-        export NVM_DIR="$HOME/.nvm"
-        [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
-        [ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"
-
-        echo -e "${BLUE}--> Instalando a versão 22 do Node.js...${NC}"
-        nvm install 22
-        nvm use 22
-        nvm alias default 22
-
-        echo -e "${BLUE}--> Atualizando o npm para a versão mais recente...${NC}"
-        npm install -g npm@latest
-
-        # --- Instala pnpm ---
-        echo -e "${BLUE}--> Instalando pnpm...${NC}"
-        npm install -g pnpm@latest-10
+    if [[ "$DISTRO" == "fedora" ]]; then
+        echo -e "${BLUE}--> Instalando PHP e extensões no Fedora...${NC}"
+        
+        pkg_install \
+          php php-cli php-fpm php-mysqlnd php-gd php-intl php-mbstring php-pdo \
+          php-xml php-pecl-zip php-bcmath php-sodium php-opcache php-devel php-common
     else
-        echo -e "${YELLOW}--> NVM já está instalado. Pulando download.${NC}"
+        echo -e "${BLUE}--> Instalando PHP e extensões no Pop!_OS...${NC}"
+        pkg_install php-cli php-fpm php-mysql php-gd php-intl php-mbstring php-xml php-zip php-bcmath php-curl php-sqlite3
     fi
 
-    # --- Instala PHP e extensões ---
-    echo -e "${BLUE}--> Instalando PHP e extensões via DNF...${NC}"
-    
-    sudo dnf install -y \
-      php php-cli php-fpm php-mysqlnd php-gd php-intl php-mbstring php-pdo \
-      php-xml php-pecl-zip php-bcmath php-sodium php-opcache php-devel php-common
-
-    # --- Instala Composer e Laravel Installer ---
-    echo -e "${BLUE}--> Instalando o Composer...${NC}"
+    echo -e "${BLUE}--> Verificando Composer...${NC}"
     if ! command -v composer &> /dev/null; then
         cd /tmp
         php -r "copy('https://getcomposer.org/installer', 'composer-setup.php');"
         local EXPECTED_SIGNATURE=$(curl -s https://composer.github.io/installer.sig)
         local ACTUAL_SIGNATURE=$(php -r "echo hash_file('sha384', 'composer-setup.php');")
+        
         if [ "$EXPECTED_SIGNATURE" != "$ACTUAL_SIGNATURE" ]; then
             >&2 echo '${RED}ERRO: Assinatura do instalador do Composer é inválida.${NC}'
             rm composer-setup.php
             exit 1
         fi
+        
         php composer-setup.php
         php -r "unlink('composer-setup.php');"
         sudo mv composer.phar /usr/local/bin/composer
         cd - > /dev/null
     else
         echo -e "${YELLOW}--> Composer já está instalado. Pulando.${NC}"
-    fi
+        sudo composer self-update
+    fi 
     
-    local COMPOSER_VENDOR_PATH="$HOME/.config/composer/vendor/bin"
-    if ! grep -q "$COMPOSER_VENDOR_PATH" "$HOME/.bash_profile"; then
-      echo -e '\n# Add Composer global bin to PATH\nexport PATH="$PATH:'"$COMPOSER_VENDOR_PATH"'"' >> "$HOME/.bash_profile"
+    local COMPOSER_BIN="$HOME/.config/composer/vendor/bin"
+    if [[ ":$PATH:" != *":$COMPOSER_BIN:"* ]]; then
+        echo -e "${BLUE}--> Adicionando Composer ao PATH...${NC}"
+        echo -e "\n# Composer Global Bin\nexport PATH=\"\$PATH:$COMPOSER_BIN\"" >> "$HOME/.bashrc"
+        export PATH="$PATH:$COMPOSER_BIN"
     fi
-    export PATH="$PATH:$COMPOSER_VENDOR_PATH"
 
-    echo -e "${BLUE}--> Instalando o Laravel Installer globalmente...${NC}"
+    echo -e "${BLUE}--> Instalando/Atualizando Laravel Installer...${NC}"
     composer global require laravel/installer
 }
 
-# 7. Instala pnpm e fontes customizadas
+# 6. Instala NVM, Node.js, PHP e Composer
+install_js_stack() {
+    print_header "Instalando Node.js e Deno e pnpm"
+
+    if [ ! -d "$HOME/.nvm" ]; then
+        echo -e "${GREEN}--> Instalando NVM...${NC}"
+        curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash
+    fi
+
+    export NVM_DIR="$HOME/.nvm"
+    [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+
+    echo -e "${BLUE}--> Garantindo Node.js v24...${NC}"
+    nvm install 24
+    nvm use 24
+    nvm alias default 24
+
+    echo -e "${BLUE}--> Atualizando ferramentas globais (npm, pnpm)...${NC}"
+    npm install -g npm@latest pnpm@latest-10
+
+    if ! command -v deno &> /dev/null; then
+        echo -e "${GREEN}--> Instalando Deno...${NC}"
+        curl -fsSL https://deno.land/install.sh | sh
+        
+        # Adiciona ao PATH se não existir
+        if ! grep -q "DENO_INSTALL" "$HOME/.bashrc"; then
+            echo -e '\n# Deno config\nexport DENO_INSTALL="$HOME/.deno"\nexport PATH="$DENO_INSTALL/bin:$PATH"' >> "$HOME/.bashrc"
+        fi
+        export DENO_INSTALL="$HOME/.deno"
+        export PATH="$DENO_INSTALL/bin:$PATH"
+    else
+        echo -e "${YELLOW}--> Deno já está instalado. Atualizando...${NC}"
+        deno upgrade
+    fi
+}
+
 install_fonts() {
     print_header "Instalando fontes (JetBrains Mono, Nerd Fonts)"
 
     # --- Instala Fontes ---
-    local DOWNLOAD_DIR="$HOME/Downloads"
+    local DOWNLOAD_DIR="/tmp/fonts-download"
     mkdir -p "$DOWNLOAD_DIR"
 
     # --- JetBrains Mono (Regular) ---
@@ -265,27 +347,36 @@ install_fonts() {
 
     # --- Configura permissões e atualiza cache de fontes ---
     echo -e "${BLUE}--> Configurando permissões e atualizando o cache de fontes do sistema...${NC}"
+    
     if [ -d "$JB_FONT_INSTALL_DIR" ] && [ -d "$NF_FONT_INSTALL_DIR" ]; then
         sudo chown -R root: "$JB_FONT_INSTALL_DIR" "$NF_FONT_INSTALL_DIR"
         sudo chmod 644 "$JB_FONT_INSTALL_DIR"/* "$NF_FONT_INSTALL_DIR"/*
         sudo restorecon -vFr "$JB_FONT_INSTALL_DIR" "$NF_FONT_INSTALL_DIR"
     fi
+
+    if command -v restorecon &> /dev/null; then
+        sudo restorecon -vFr /usr/local/share/fonts/
+    fi
+    
     sudo fc-cache -fv
 }
 
-
-# 8. Instala dependências, Flutter e JetBrains Toolbox
 install_flutter_and_jetbrains() {
     print_header "Instalando Flutter, JetBrains Toolbox e dependências"
 
     echo -e "${BLUE}--> Instalando dependências de compilação e do Flutter...${NC}"
-    sudo dnf install -y \
-      curl git unzip xz zip ninja-build cmake clang meson systemd-devel \
-      pkg-config dbus-devel inih-devel fuse fuse-libs gtk3-devel egl-utils
+    if [[ "$DISTRO" == "fedora" ]]; then
+        pkg_install \
+          curl git unzip xz zip ninja-build cmake clang meson systemd-devel \
+          pkg-config dbus-devel inih-devel fuse fuse-libs gtk3-devel egl-utils
+    else
+        pkg_install \
+            curl git unzip xz-utils zip libglu1-mesa
+    fi
 
     # --- Cria diretórios de trabalho ---
     local DEV_DIR="$HOME/development"
-    local DOWNLOAD_DIR="$HOME/Downloads"
+    local DOWNLOAD_DIR="/tmp/dev-downloads"
     mkdir -p "$DEV_DIR" "$DOWNLOAD_DIR"
 
     # --- Instala Flutter ---
@@ -302,11 +393,15 @@ install_flutter_and_jetbrains() {
     else
         echo -e "${YELLOW}--> Flutter SDK já encontrado em '$FLUTTER_DIR'. Pulando.${NC}"
     fi
-    
-    
-    if ! grep -q 'development/flutter/bin' "$HOME/.bash_profile"; then
-      echo -e '\n# Add Flutter to PATH\nexport PATH="$PATH:$HOME/development/flutter/bin"' >> "$HOME/.bash_profile"
+
+    local FLUTTER_PATH_CMD='export PATH="$PATH:$HOME/development/flutter/bin"'
+    local TARGET_SHELL_CONFIG="$HOME/.bashrc"
+
+    if [[ "$DISTRO" == "fedora" ]]; then TARGET_SHELL_CONFIG="$HOME/.bash_profile"; fi
+    if ! grep -q 'development/flutter/bin' "$TARGET_SHELL_CONFIG"; then
+        echo -e "\n# Add Flutter to PATH\n$FLUTTER_PATH_CMD" >> "$TARGET_SHELL_CONFIG"
     fi
+    export PATH="$PATH:$HOME/development/flutter/bin"
     
     # --- Instala JetBrains Toolbox ---
     if ! find "$DEV_DIR" -maxdepth 1 -type d -name "jetbrains-toolbox-*" | grep -q .; then
@@ -321,6 +416,7 @@ install_flutter_and_jetbrains() {
         
         if [ -d "$TOOLBOX_DIR" ]; then
             nohup "$TOOLBOX_DIR/jetbrains-toolbox" > /dev/null 2>&1 &
+            echo -e "${BOLD_GREEN}--> JetBrains Toolbox iniciado para configuração inicial.${NC}"
         else
             echo -e "${RED}ERRO: Não foi possível encontrar o diretório do JetBrains Toolbox.${NC}"
         fi
@@ -333,7 +429,7 @@ install_flutter_and_jetbrains() {
 
 # 9. Configura o Docker e instala o Docker Desktop
 configure_docker() {
-    print_header "Configurando o Docker e instalando o Docker Desktop"
+    print_header "Configurando o Docker e Docker Desktop"
     
     sudo systemctl enable --now docker
     sudo groupadd -f docker
@@ -341,22 +437,54 @@ configure_docker() {
         echo -e "${BLUE}--> Adicionando usuário '$USER' ao grupo docker...${NC}"
         sudo usermod -aG docker "$USER"
     fi
-    
-    if ! rpm -q docker-desktop &> /dev/null; then
-        echo -e "${GREEN}--> Baixando e instalando o Docker Desktop...${NC}"
-        local DOCKER_DESKTOP_URL="https://desktop.docker.com/linux/main/amd64/docker-desktop-x86_64.rpm"
-        local DOCKER_DESKTOP_RPM="$HOME/Downloads/docker-desktop.rpm"
-        
-        curl -L --http1.1 -C - "$DOCKER_DESKTOP_URL" -o "$DOCKER_DESKTOP_RPM"
-        
-        sudo dnf install -y "$DOCKER_DESKTOP_RPM"
-        rm "$DOCKER_DESKTOP_RPM"
+
+    local IS_INSTALLED=false
+    if [[ "$DISTRO" == "fedora" ]]; then
+        rpm -q docker-desktop &> /dev/null && IS_INSTALLED=true
     else
-        echo -e "${YELLOW}--> Docker Desktop já está instalado. Pulando.${NC}"
+        dpkg -l docker-desktop &> /dev/null && IS_INSTALLED=true
+    fi
+    
+    if [ "$IS_INSTALLED" = false ] then
+        echo -e "${GREEN}--> Baixando e instalando o Docker Desktop...${NC}"
+        mkdir -p /tmp/docker-install
+        
+        if [[ "$DISTRO" == "fedora" ]]; then
+            local URL="https://desktop.docker.com/linux/main/amd64/docker-desktop-x86_64.rpm"
+            curl -L "$URL" -o /tmp/docker-install/docker-desktop.rpm
+            sudo dnf install -y /tmp/docker-install/docker-desktop.rpm
+        else
+            # Versão para Pop!_OS / Ubuntu
+            local URL="https://desktop.docker.com/linux/main/amd64/docker-desktop-amd64.deb"
+            curl -L "$URL" -o /tmp/docker-install/docker-desktop.deb
+            sudo apt update && sudo apt install -y /tmp/docker-install/docker-desktop.deb
+        fi
+        rm -rf /tmp/docker-install
+    else
+        echo -e "${YELLOW}--> Docker Desktop já está instalado. Pulando...${NC}"
     fi
 }
 
-# 10. Configura Pod com MariaDB e phpMyAdmin
+clean_mariadb_pod() {
+    local POD_NAME="mariadb-pod"
+    local DB_VOLUME_NAME="mariadb_app_data"
+
+    print_header "Limpando ambiente MariaDB"
+    
+    if podman pod exists "$POD_NAME"; then
+        echo -e "${YELLOW}--> Pod '$POD_NAME' encontrado. Removendo...${NC}"
+        podman pod rm -f "$POD_NAME"
+    fi
+
+    if podman volume exists "$DB_VOLUME_NAME"; then
+        echo -e "${YELLOW}--> Volume '$DB_VOLUME_NAME' encontrado. Removendo para garantir uma inicialização limpa...${NC}"
+        podman volume rm -f "$DB_VOLUME_NAME"
+        echo -e "${CYAN}--> Aguardando 5 segundos para garantir a sincronização do sistema de arquivos...${NC}"
+        sleep 5
+    fi
+
+}
+
 configure_mariadb_pod() {
     print_header "Configurando Pod com MariaDB e phpMyAdmin"
 
@@ -436,26 +564,6 @@ EOSQL
     echo -e "--------------------------------------------------"
 }
 
-# 11. Deleta o Pod do MariaDB, se houver
-clean_mariadb_pod() {
-    local POD_NAME="mariadb-pod"
-    local DB_VOLUME_NAME="mariadb_app_data"
-    
-    if podman pod exists "$POD_NAME"; then
-        echo -e "${YELLOW}--> Pod '$POD_NAME' encontrado. Removendo...${NC}"
-        podman pod rm -f "$POD_NAME"
-    fi
-
-    if podman volume exists "$DB_VOLUME_NAME"; then
-        echo -e "${YELLOW}--> Volume '$DB_VOLUME_NAME' encontrado. Removendo para garantir uma inicialização limpa...${NC}"
-        podman volume rm -f "$DB_VOLUME_NAME"
-        echo -e "${CYAN}--> Aguardando 5 segundos para garantir a sincronização do sistema de arquivos...${NC}"
-        sleep 5
-    fi
-
-}
-
-# 12. Deleta o Pod do PostgreSQL, se houver
 clean_postgres_pod() {
     local POD_NAME="postgres-pod"
     local DB_VOLUME="postgres_data"
@@ -477,7 +585,6 @@ clean_postgres_pod() {
     sleep 3
 }
 
-# 13. Configura Pod com PostgreSQL e pgAdmin 4
 configure_postgres_pod() {
     print_header "Configurando Pod com PostgreSQL e pgAdmin"
 
@@ -506,16 +613,6 @@ configure_postgres_pod() {
     echo -e "${GREEN}--> Aguardando o PostgreSQL inicializar...${NC}"
     local max_retries=60
     local retry_count=0
-    
-    # while ! podman exec "$DB_CONTAINER" pg_isready -U "$DB_USER" -d "$DB_NAME" &> /dev/null; do
-    #     retry_count=$((retry_count + 1))
-    #     if [ $retry_count -ge $max_retries ]; then
-    #         echo -e "${RED}ERRO: Timeout! O PostgreSQL não ficou pronto a tempo.${NC}" >&2
-    #         exit 1
-    #     fi
-    #     echo -e "${YELLOW}--> Tentativa $retry_count/$max_retries. Aguardando...${NC}"
-    #     sleep 3
-    # done
 
     while true; do
         if podman exec "$DB_CONTAINER" pg_isready -U "$DB_USER" -d "$DB_NAME" &> /dev/null; then
@@ -567,21 +664,30 @@ configure_postgres_pod() {
 }
 
 install_gnome_extensions() {
+    if [[ "$DISTRO" != "fedora" ]]; then
+        echo -e "${YELLOW}--> Distribuição '$DISTRO' detectada. Pulando extensões do GNOME (exclusivo para Fedora).${NC}"
+        return 0
+    fi
+    
     print_header "Instalando Extensões do Gnome"
 
     if ! command -v pipx &> /dev/null; then
         echo -e "${BLUE}--> Instalando pipx...${NC}"
-        sudo dnf install -y pipx
+        pkg_install pipx
     else
         echo -e "${YELLOW}--> pipx já está instalado. Pulando.${NC}"
     fi
 
     echo -e "${MAGENTA}--> Garantindo que o pipx estejam na PATH...${NC}"
-    pipx ensurepath
+    pipx ensurepath --force > /dev/null 2>&1
     export PATH="$PATH:$HOME/.local/bin"
 
-    echo -e "${BLUE}--> Instalando gnome-extensions-cli pelo pipx...${NC}"
-    pipx install gnome-extensions-cli
+    if ! command -v gnome-extensions-cli &> /dev/null; then
+        echo -e "${BLUE}--> Instalando gnome-extensions-cli via pipx...${NC}"
+        pipx install gnome-extensions-cli
+    else
+        echo -e "${YELLOW}--> gnome-extensions-cli já está presente.${NC}"
+    fi
 
     declare -a EXTENSIONS_IDS=(
         "1414" # 'Unblank lock screen'
@@ -598,8 +704,8 @@ install_gnome_extensions() {
     for id in "${EXTENSIONS_IDS[@]}"; do
         echo -e "${BLUE}--> Instalando a extensão $id pelo gnome-extensions-cli...${NC}"
         
-        if ! gnome-extensions-cli install "$id"; then
-            echo -e "${RED}ERRO: Erro ao instalar a extensão de ID: $id ${NC}" 
+        if ! gnome-extensions-cli install "$id" --update 2>/dev/null; then
+            echo -e "${YELLOW}--> Nota: A extensão $id pode já estar instalada ou ser incompatível com esta versão do GNOME.${NC}" 
         fi
     done
 
@@ -613,24 +719,34 @@ main() {
        exit 1
     fi
     
+    # 2. Reset de ambiente para Idempotência
     clean_mariadb_pod
     clean_postgres_pod
     
+    # 3. Base do Sistema
     update_system
-    setup_multimedia_and_java
-    install_oh_my_bash
+    setup_multimedia_and_base_dependencies  # Nome sincronizado aqui
+    install_oh_my_bash                      # Instalado antes para preparar o .bashrc
+    
+    # 4. Gerenciadores e Repositórios
     setup_flatpak
     install_dev_tools
-    install_web_dev_stack
-    install_fonts
+    
+    # 5. Stacks de Linguagens (PHP, JS, Flutter)
+    install_web_stack
+    install_js_stack
     install_flutter_and_jetbrains
+    
+    # 6. Configurações de Ambiente e Fontes
+    install_fonts
     configure_docker
     install_gnome_extensions
+    
+    # 7. Infraestrutura (Containers/Pods)
     configure_mariadb_pod
     configure_postgres_pod
-
+    
     fastfetch
-
     print_header "Instalação Concluída!"
     echo -e "Para que TODAS as alterações (grupos, PATH, fontes, etc.) tenham efeito,"
     echo -e "você precisa SAIR e ENTRAR novamente na sua sessão ou reiniciar o computador."
