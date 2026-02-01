@@ -445,7 +445,7 @@ configure_docker() {
         dpkg -l docker-desktop &> /dev/null && IS_INSTALLED=true
     fi
     
-    if [ "$IS_INSTALLED" = false ] then
+    if [ "$IS_INSTALLED" = false ]; then
         echo -e "${GREEN}--> Baixando e instalando o Docker Desktop...${NC}"
         mkdir -p /tmp/docker-install
         
