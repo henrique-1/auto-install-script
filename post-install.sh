@@ -121,7 +121,7 @@ setup_flatpak() {
     pkg_install flatpak
 
     echo -e "${MAGENTA}--> Adicionando e habilitando o repositório Flathub...${NC}"
-    flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+    flatpak remote-add --if-not-exists --system flathub https://flathub.org/repo/flathub.flatpakrepo
     
     flatpak remote-modify --enable flathub
 
@@ -148,7 +148,7 @@ setup_flatpak() {
         else
             echo -e "${BLUE}--> Instalando: $app${NC}"
 
-            flatpak install -y flathub "$app"
+            flatpak install -y --system --noninteractive flathub "$app"
         fi
     done
 }
