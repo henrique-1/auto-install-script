@@ -93,7 +93,8 @@ setup_multimedia_and_base_dependencies() {
           build-essential \
           software-properties-common \
           gpg \
-          openjdk-17-jdk
+          openjdk-17-jdk \
+          libfuse2
     fi
 }
 
