@@ -138,6 +138,7 @@ setup_flatpak() {
         app.zen_browser.zen
         io.github.flattool.Warehouse
         io.podman_desktop.PodmanDesktop
+        net.nokyan.Resources
     )
 
     echo -e "${BLUE}--> Instalando aplicativos via Flatpak...${NC}"
@@ -714,6 +715,45 @@ install_gnome_extensions() {
     echo -e "${GREEN}--> Instalação das extensões finalizada com sucesso!${NC}"
 }
 
+install_steam() {
+    print_header "Instalando Steam"
+    
+    if [[ "$DISTRO" == "fedora" ]]; then
+        echo -e "${BLUE}--> Instalando Steam via RPM Fusion (Fedora)...${NC}"
+        
+        # Verifica se o repositório nonfree está presente (essencial para Steam no Fedora)
+        if ! rpm -q rpmfusion-nonfree-release &> /dev/null; then
+            echo -e "${RED}ERRO: Repositório RPM Fusion Non-Free não encontrado.${NC}"
+            echo -e "${YELLOW}Certifique-se de que a função 'setup_multimedia_and_base_dependencies' rodou corretamente.${NC}"
+            return 1
+        fi
+
+        pkg_install steam
+    else
+        # Lógica para Pop!_OS / Ubuntu
+        echo -e "${BLUE}--> Preparando ambiente Debian-based para Steam...${NC}"
+        
+        # Steam exige arquitetura de 32 bits no Ubuntu/Pop
+        sudo dpkg --add-architecture i386
+        sudo apt update
+
+        if ! dpkg -l steam &> /dev/null; then
+            echo -e "${GREEN}--> Baixando e instalando Steam oficial (.deb)...${NC}"
+            local STEAM_URL="https://cdn.fastly.steamstatic.com/client/installer/steam.deb"
+            local TEMP_DEB="/tmp/steam.deb"
+
+            curl -L "$STEAM_URL" -o "$TEMP_DEB"
+            # O apt install resolve as dependências de 32 bits automaticamente
+            sudo apt install -y "$TEMP_DEB"
+            rm -f "$TEMP_DEB"
+        else
+            echo -e "${YELLOW}--> Steam já instalada. Pulando.${NC}"
+        fi
+    fi
+
+    echo -e "${BOLD_GREEN}--> Steam configurada com sucesso em seu sistema $DISTRO!${NC}"
+}
+
 # --- Função Principal ---
 main() {
     if [[ $EUID -eq 0 ]]; then
@@ -741,6 +781,7 @@ main() {
     
     # 6. Configurações de Ambiente e Fontes
     install_fonts
+    install_steam
     configure_docker
     install_gnome_extensions
     
