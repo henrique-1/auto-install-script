@@ -287,7 +287,7 @@ install_js_stack() {
 
     if ! command -v deno &> /dev/null; then
         echo -e "${GREEN}--> Instalando Deno...${NC}"
-        curl -fsSL https://deno.land/install.sh | sh
+        printf "y\n \n\n" | sh -c "$(curl -fsSL https://deno.land/install.sh)"
         
         # Adiciona ao PATH se não existir
         if ! grep -q "DENO_INSTALL" "$HOME/.bashrc"; then
@@ -430,7 +430,6 @@ install_flutter_and_jetbrains() {
     fi
 }
 
-# 9. Configura o Docker e instala o Docker Desktop
 configure_docker() {
     print_header "Configurando o Docker e Docker Desktop"
     
