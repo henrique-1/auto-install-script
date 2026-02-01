@@ -184,6 +184,9 @@ install_dev_tools() {
           docker-buildx-plugin docker-compose-plugin fastfetch
     else
         sudo mkdir -p -m 755 /etc/apt/keyrings
+
+        echo -e "${MAGENTA}--> Adicionando PPA do Fastfetch...${NC}"
+        sudo add-apt-repository -y ppa:zhangsongcui3371/fastfetch
         
         # GH CLI
         if [ ! -f "/etc/apt/keyrings/githubcli-archive-keyring.gpg" ]; then
