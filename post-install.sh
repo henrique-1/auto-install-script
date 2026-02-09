@@ -94,7 +94,11 @@ setup_multimedia_and_base_dependencies() {
           software-properties-common \
           gpg \
           openjdk-17-jdk \
-          libfuse2
+          libfuse2 \
+          curl \
+          git \
+          wget \
+          unzip
     fi
 }
 
