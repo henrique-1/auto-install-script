@@ -432,48 +432,52 @@ install_flutter_and_jetbrains() {
     export PATH="$PATH:$HOME/development/flutter/bin"
     
     # --- Instala JetBrains Toolbox ---
-    local TB_EXISTING_DIR=$(find "$DEV_DIR" -maxdepth 1 -type d -name "jetbrains-toolbox-*")
-    local INSTALLED=false
+    echo -e "${BLUE}--> Verificando instalação do JetBrains Toolbox...${NC}"
 
-    if [ -n "$TB_EXISTING_DIR" ]; then
-        if [ -f "$TB_EXISTING_DIR/jetbrains-toolbox" ]; then
-            INSTALLED=true
-        else
-            echo -e "${YELLOW}--> Pasta do Toolbox encontrada, mas parece incompleta. Reinstalando...${NC}"
-            rm -rf "$TB_EXISTING_DIR"
-        fi
-    fi
+    # 1. Limpeza Preventiva: Remove versões antigas ou parciais para evitar confusão do 'find'
+    # Cuidado: Isso remove qualquer pasta que comece com jetbrains-toolbox- dentro de development
+    find "$DEV_DIR" -maxdepth 1 -type d -name "jetbrains-toolbox-*" -exec rm -rf {} +
 
-    if [ "$INSTALLED" = false ]; then
-        echo -e "${GREEN}--> Baixando o JetBrains Toolbox...${NC}"
-        local JETBRAINS_URL="https://data.services.jetbrains.com/products/download?code=TBA&platform=linux&type=release"
-        local JETBRAINS_ARCHIVE="$DOWNLOAD_DIR/jetbrains-toolbox.tar.gz"
-        
-        # Curl com -f para falhar se der 404/500
-        if curl -fL "$JETBRAINS_URL" -o "$JETBRAINS_ARCHIVE"; then
-            
-            echo -e "${BLUE}--> Extraindo JetBrains Toolbox...${NC}"
-            tar -xzf "$JETBRAINS_ARCHIVE" -C "$DEV_DIR"
-            
-            # Recalcula diretório após extração
-            local TOOLBOX_DIR=$(find "$DEV_DIR" -maxdepth 1 -type d -name "jetbrains-toolbox-*")
-            
-            if [ -d "$TOOLBOX_DIR" ] && [ -f "$TOOLBOX_DIR/jetbrains-toolbox" ]; then
-                echo -e "${BOLD_GREEN}--> Iniciando JetBrains Toolbox...${NC}"
-                nohup "$TOOLBOX_DIR/jetbrains-toolbox" > /dev/null 2>&1 &
-            else
-                echo -e "${RED}ERRO: Falha na extração ou estrutura do arquivo mudou.${NC}"
-                ls -la "$DEV_DIR" # Debug
-            fi
-            
-            rm -f "$JETBRAINS_ARCHIVE"
-        else
-            echo -e "${RED}ERRO: Falha no download do JetBrains Toolbox.${NC}"
-        fi
-    else
-      echo -e "${YELLOW}--> JetBrains Toolbox já encontrado em '$TB_EXISTING_DIR'. Pulando.${NC}"
-    fi
+    echo -e "${GREEN}--> Baixando a versão mais recente do JetBrains Toolbox...${NC}"
+    local JETBRAINS_URL="https://data.services.jetbrains.com/products/download?code=TBA&platform=linux&type=release"
+    local JETBRAINS_ARCHIVE="$DOWNLOAD_DIR/jetbrains-toolbox.tar.gz"
     
+    if curl -fL "$JETBRAINS_URL" -o "$JETBRAINS_ARCHIVE"; then
+        
+        echo -e "${BLUE}--> Extraindo...${NC}"
+        tar -xzf "$JETBRAINS_ARCHIVE" -C "$DEV_DIR"
+        
+        # 2. Detecção Inteligente: Pega o primeiro diretório que corresponde ao padrão
+        local TOOLBOX_DIR=$(find "$DEV_DIR" -maxdepth 1 -type d -name "jetbrains-toolbox-*" | head -n 1)
+        
+        if [ -d "$TOOLBOX_DIR" ]; then
+            # 3. Busca o executável interno (AppImage) independente do nome exato
+            # Geralmente se chama "jetbrains-toolbox", mas procuramos qualquer arquivo executável na raiz da pasta
+            local TOOLBOX_BIN=$(find "$TOOLBOX_DIR" -maxdepth 1 -type f -executable | head -n 1)
+
+            # Se o find não achou pelo bit de execução, tenta pelo nome padrão
+            if [ -z "$TOOLBOX_BIN" ]; then
+                TOOLBOX_BIN="$TOOLBOX_DIR/jetbrains-toolbox"
+            fi
+
+            if [ -f "$TOOLBOX_BIN" ]; then
+                echo -e "${BOLD_GREEN}--> Sucesso! Iniciando JetBrains Toolbox...${NC}"
+                # Torna executável só por garantia
+                chmod +x "$TOOLBOX_BIN"
+                nohup "$TOOLBOX_BIN" > /dev/null 2>&1 &
+            else
+                echo -e "${RED}ERRO: A pasta foi extraída, mas o executável não foi encontrado dentro dela.${NC}"
+                echo -e "Conteúdo de: $TOOLBOX_DIR"
+                ls -la "$TOOLBOX_DIR"
+            fi
+        else
+            echo -e "${RED}ERRO: A extração parece ter falhado. O diretório não foi criado.${NC}"
+        fi
+        
+        rm -f "$JETBRAINS_ARCHIVE"
+    else
+        echo -e "${RED}ERRO: Falha no download do arquivo.${NC}"
+    fi
 }
 
 configure_docker() {
