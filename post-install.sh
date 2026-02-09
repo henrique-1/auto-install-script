@@ -592,7 +592,7 @@ EOSQL
     sleep 5
     echo -e "${BLUE}--> Iniciando o contêiner do phpMyAdmin ('$PMA_CONTAINER_NAME')...${NC}"
     podman run -d --name "$PMA_CONTAINER_NAME" --pod "$POD_NAME" \
-      -e PMA_HOST="$DB_CONTAINER_NAME" \
+      -e PMA_HOST="127.0.0.1" \
       docker.io/library/phpmyadmin:latest
 
     echo -e "${GREEN}--> Pod com MariaDB e phpMyAdmin configurado com sucesso!${NC}"
