@@ -288,21 +288,27 @@ install_web_stack(){
 install_js_stack() {
     print_header "Instalando Node.js e Deno e pnpm"
 
-    if [ ! -d "$HOME/.nvm" ]; then
+    export NVM_DIR="$HOME/.nvm"
+    
+    if [ ! -d "$NVM_DIR" ]; then
         echo -e "${GREEN}--> Instalando NVM...${NC}"
         curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash
     fi
 
-    export NVM_DIR="$HOME/.nvm"
-    [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+    [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
+    [ -s "$NVM_DIR/bash_completion" ] && . "$NVM_DIR/bash_completion"
 
     echo -e "${BLUE}--> Garantindo Node.js v24...${NC}"
-    nvm install 24
-    nvm use 24
-    nvm alias default 24
-
-    echo -e "${BLUE}--> Atualizando ferramentas globais (npm, pnpm)...${NC}"
-    npm install -g npm@latest pnpm@latest-10
+    if command -v nvm &> /dev/null; then
+        nvm install 24
+        nvm use 24
+        nvm alias default 24
+        
+        echo -e "${BLUE}--> Atualizando ferramentas globais (npm, pnpm)...${NC}"
+        npm install -g npm@latest pnpm@latest-10
+    else
+        echo -e "${RED}ERRO: NVM não foi carregado corretamente. Pulando instalação do Node.${NC}"
+    fi
 
     if ! command -v deno &> /dev/null; then
         echo -e "${GREEN}--> Instalando Deno...${NC}"
@@ -426,27 +432,48 @@ install_flutter_and_jetbrains() {
     export PATH="$PATH:$HOME/development/flutter/bin"
     
     # --- Instala JetBrains Toolbox ---
-    if ! find "$DEV_DIR" -maxdepth 1 -type d -name "jetbrains-toolbox-*" | grep -q .; then
+    local TB_EXISTING_DIR=$(find "$DEV_DIR" -maxdepth 1 -type d -name "jetbrains-toolbox-*")
+    local INSTALLED=false
+
+    if [ -n "$TB_EXISTING_DIR" ]; then
+        if [ -f "$TB_EXISTING_DIR/jetbrains-toolbox" ]; then
+            INSTALLED=true
+        else
+            echo -e "${YELLOW}--> Pasta do Toolbox encontrada, mas parece incompleta. Reinstalando...${NC}"
+            rm -rf "$TB_EXISTING_DIR"
+        fi
+    fi
+
+    if [ "$INSTALLED" = false ]; then
         echo -e "${GREEN}--> Baixando o JetBrains Toolbox...${NC}"
         local JETBRAINS_URL="https://data.services.jetbrains.com/products/download?code=TBA&platform=linux&type=release"
         local JETBRAINS_ARCHIVE="$DOWNLOAD_DIR/jetbrains-toolbox.tar.gz"
         
-        curl -L "$JETBRAINS_URL" -o "$JETBRAINS_ARCHIVE"
-        
-        tar -xzf "$JETBRAINS_ARCHIVE" -C "$DEV_DIR"
-        local TOOLBOX_DIR=$(find "$DEV_DIR" -maxdepth 1 -type d -name "jetbrains-toolbox-*")
-        
-        if [ -d "$TOOLBOX_DIR" ]; then
-            nohup "$TOOLBOX_DIR/jetbrains-toolbox" > /dev/null 2>&1 &
-            echo -e "${BOLD_GREEN}--> JetBrains Toolbox iniciado para configuração inicial.${NC}"
+        # Curl com -f para falhar se der 404/500
+        if curl -fL "$JETBRAINS_URL" -o "$JETBRAINS_ARCHIVE"; then
+            
+            echo -e "${BLUE}--> Extraindo JetBrains Toolbox...${NC}"
+            tar -xzf "$JETBRAINS_ARCHIVE" -C "$DEV_DIR"
+            
+            # Recalcula diretório após extração
+            local TOOLBOX_DIR=$(find "$DEV_DIR" -maxdepth 1 -type d -name "jetbrains-toolbox-*")
+            
+            if [ -d "$TOOLBOX_DIR" ] && [ -f "$TOOLBOX_DIR/jetbrains-toolbox" ]; then
+                echo -e "${BOLD_GREEN}--> Iniciando JetBrains Toolbox...${NC}"
+                nohup "$TOOLBOX_DIR/jetbrains-toolbox" > /dev/null 2>&1 &
+            else
+                echo -e "${RED}ERRO: Falha na extração ou estrutura do arquivo mudou.${NC}"
+                ls -la "$DEV_DIR" # Debug
+            fi
+            
+            rm -f "$JETBRAINS_ARCHIVE"
         else
-            echo -e "${RED}ERRO: Não foi possível encontrar o diretório do JetBrains Toolbox.${NC}"
+            echo -e "${RED}ERRO: Falha no download do JetBrains Toolbox.${NC}"
         fi
-
-        rm "$JETBRAINS_ARCHIVE"
     else
-      echo -e "${YELLOW}--> JetBrains Toolbox já encontrado em '$DEV_DIR'. Pulando.${NC}"
+      echo -e "${YELLOW}--> JetBrains Toolbox já encontrado em '$TB_EXISTING_DIR'. Pulando.${NC}"
     fi
+    
 }
 
 configure_docker() {
