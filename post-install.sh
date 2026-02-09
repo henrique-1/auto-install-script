@@ -789,7 +789,7 @@ install_steam() {
 
             curl -L "$STEAM_URL" -o "$TEMP_DEB"
             # O apt install resolve as dependências de 32 bits automaticamente
-            sudo apt install -y "$TEMP_DEB" mangohud mangohud:i386 gamemode
+            sudo apt install -y "$TEMP_DEB" mangohud gamemode
             rm -f "$TEMP_DEB"
         else
             echo -e "${YELLOW}--> Steam já instalada. Pulando.${NC}"
