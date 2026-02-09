@@ -123,7 +123,20 @@ setup_flatpak() {
     print_header "Configurando o Flatpak e instalando aplicativos"
     
     echo -e "${BLUE}--> Garantindo que o Flatpak está instalado...${NC}"
-    pkg_install flatpak
+    if [[ "$DISTRO" == "ubuntu" || "$DISTRO" == "pop" ]]; then
+        pkg_install flatpak gnome-software-plugin-flatpak
+
+        local FLATPAK_EXPORT='export XDG_DATA_DIRS="/var/lib/flatpak/exports/share:$HOME/.local/share/flatpak/exports/share:$XDG_DATA_DIRS"'
+        if ! grep -q "var/lib/flatpak/exports/share" "$HOME/.bashrc"; then
+            echo -e "${BLUE}--> Adicionando XDG_DATA_DIRS do Flatpak ao .bashrc...${NC}"
+            echo -e "\n# Flatpak Environment Config" >> "$HOME/.bashrc"
+            echo "$FLATPAK_EXPORT" >> "$HOME/.bashrc"
+        else
+            echo -e "${YELLOW}--> Variável XDG_DATA_DIRS já configurada no .bashrc. Pulando.${NC}"
+        fi
+    else
+        pkg_install flatpak
+    fi
 
     echo -e "${MAGENTA}--> Adicionando e habilitando o repositório Flathub...${NC}"
     flatpak remote-add --if-not-exists --system flathub https://flathub.org/repo/flathub.flatpakrepo
@@ -219,7 +232,7 @@ install_dev_tools() {
         sudo apt update
 
         echo -e "${BLUE}--> Instalando pacotes de dev no Pop!_OS...${NC}"
-        # Removido podman-machine (não existe no APT com esse nome)
+
         pkg_install code gh docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin podman fastfetch
     fi
 }
