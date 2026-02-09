@@ -746,7 +746,7 @@ install_steam() {
             return 1
         fi
 
-        pkg_install steam
+        pkg_install steam mangohud gamemode
     else
         # Lógica para Pop!_OS / Ubuntu
         echo -e "${BLUE}--> Preparando ambiente Debian-based para Steam...${NC}"
@@ -762,7 +762,7 @@ install_steam() {
 
             curl -L "$STEAM_URL" -o "$TEMP_DEB"
             # O apt install resolve as dependências de 32 bits automaticamente
-            sudo apt install -y "$TEMP_DEB"
+            sudo apt install -y "$TEMP_DEB" mangohud mangohud:i386 gamemode
             rm -f "$TEMP_DEB"
         else
             echo -e "${YELLOW}--> Steam já instalada. Pulando.${NC}"
