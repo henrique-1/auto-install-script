@@ -434,8 +434,7 @@ install_flutter_and_jetbrains() {
     # --- Instala JetBrains Toolbox ---
     echo -e "${BLUE}--> Verificando instalação do JetBrains Toolbox...${NC}"
 
-    # 1. Limpeza Preventiva: Remove versões antigas ou parciais para evitar confusão do 'find'
-    # Cuidado: Isso remove qualquer pasta que comece com jetbrains-toolbox- dentro de development
+    # 1. Limpeza Preventiva: Remove versões antigas para evitar conflitos
     find "$DEV_DIR" -maxdepth 1 -type d -name "jetbrains-toolbox-*" -exec rm -rf {} +
 
     echo -e "${GREEN}--> Baixando a versão mais recente do JetBrains Toolbox...${NC}"
@@ -447,31 +446,30 @@ install_flutter_and_jetbrains() {
         echo -e "${BLUE}--> Extraindo...${NC}"
         tar -xzf "$JETBRAINS_ARCHIVE" -C "$DEV_DIR"
         
-        # 2. Detecção Inteligente: Pega o primeiro diretório que corresponde ao padrão
+        # 2. Encontra o diretório base extraído (ex: jetbrains-toolbox-3.2.0.65851)
         local TOOLBOX_DIR=$(find "$DEV_DIR" -maxdepth 1 -type d -name "jetbrains-toolbox-*" | head -n 1)
         
         if [ -d "$TOOLBOX_DIR" ]; then
-            # 3. Busca o executável interno (AppImage) independente do nome exato
-            # Geralmente se chama "jetbrains-toolbox", mas procuramos qualquer arquivo executável na raiz da pasta
-            local TOOLBOX_BIN=$(find "$TOOLBOX_DIR" -maxdepth 1 -type f -executable | head -n 1)
-
-            # Se o find não achou pelo bit de execução, tenta pelo nome padrão
-            if [ -z "$TOOLBOX_BIN" ]; then
-                TOOLBOX_BIN="$TOOLBOX_DIR/jetbrains-toolbox"
-            fi
+            # 3. CORREÇÃO: Busca recursiva pelo executável exato 'jetbrains-toolbox'
+            # Isso vai encontrar o arquivo seja na raiz, seja em /bin, ou qualquer outra subpasta.
+            local TOOLBOX_BIN=$(find "$TOOLBOX_DIR" -name "jetbrains-toolbox" -type f | head -n 1)
 
             if [ -f "$TOOLBOX_BIN" ]; then
-                echo -e "${BOLD_GREEN}--> Sucesso! Iniciando JetBrains Toolbox...${NC}"
-                # Torna executável só por garantia
+                echo -e "${BOLD_GREEN}--> Sucesso! Executável encontrado em: $TOOLBOX_BIN${NC}"
+                
+                # Garante permissão de execução
                 chmod +x "$TOOLBOX_BIN"
+                
+                # Executa em background
+                echo -e "${BLUE}--> Iniciando JetBrains Toolbox...${NC}"
                 nohup "$TOOLBOX_BIN" > /dev/null 2>&1 &
             else
-                echo -e "${RED}ERRO: A pasta foi extraída, mas o executável não foi encontrado dentro dela.${NC}"
-                echo -e "Conteúdo de: $TOOLBOX_DIR"
-                ls -la "$TOOLBOX_DIR"
+                echo -e "${RED}ERRO: O arquivo 'jetbrains-toolbox' não foi encontrado dentro de '$TOOLBOX_DIR'.${NC}"
+                echo -e "Conteúdo recursivo da pasta para debug:"
+                find "$TOOLBOX_DIR"
             fi
         else
-            echo -e "${RED}ERRO: A extração parece ter falhado. O diretório não foi criado.${NC}"
+            echo -e "${RED}ERRO: A extração falhou. Diretório não encontrado.${NC}"
         fi
         
         rm -f "$JETBRAINS_ARCHIVE"
