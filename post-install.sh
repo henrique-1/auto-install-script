@@ -248,7 +248,7 @@ install_web_stack(){
           php-xml php-pecl-zip php-bcmath php-sodium php-opcache php-devel php-common
     else
         echo -e "${BLUE}--> Instalando PHP e extensões no Pop!_OS...${NC}"
-        pkg_install php-cli php-fpm php-mysql php-gd php-intl php-mbstring php-xml php-zip php-bcmath php-curl php-sqlite3
+        pkg_install php php-cli php-fpm php-mysql php-gd php-intl php-mbstring php-xml php-zip php-bcmath php-curl php-sqlite3 php-opcache php-pgsql
     fi
 
     echo -e "${BLUE}--> Verificando Composer...${NC}"
