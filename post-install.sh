@@ -749,6 +749,7 @@ install_gnome_extensions() {
         "615" # 'AppIndicator and KStatusNotifierItem Support'
         "5446" # 'Quick Settings Tweaks'
         "5506" # 'User Avatar In Quick Settings'
+        "9342" # 'Rudra'
     )
 
     for id in "${EXTENSIONS_IDS[@]}"; do
