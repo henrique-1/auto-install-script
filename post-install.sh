@@ -714,6 +714,54 @@ configure_postgres_pod() {
     echo -e "--------------------------------------------------"
 }
 
+clean_excalidraw_pod() {
+    local POD_NAME="excalidraw-pod"
+
+    print_header "Limpando ambiente Excalidraw"
+    
+    if podman pod exists "$POD_NAME"; then
+        echo -e "${YELLOW}--> Pod '$POD_NAME' encontrado. Removendo...${NC}"
+        podman pod rm -f "$POD_NAME"
+    fi
+}
+
+configure_excalidraw_pod() {
+    print_header "Configurando Pod com Excalidraw"
+
+    local POD_NAME="excalidraw-pod"
+    local APP_CONTAINER_NAME="excalidraw-app"
+    
+    echo -e "${BLUE}--> Criando o pod '$POD_NAME'...${NC}"
+    # O mapeamento de portas ocorre na criação do pod
+    podman pod create --name "$POD_NAME" -p 8080:80
+
+    echo -e "${BLUE}--> Iniciando o contêiner do Excalidraw ('$APP_CONTAINER_NAME')...${NC}"
+    podman run -d --name "$APP_CONTAINER_NAME" --pod "$POD_NAME" \
+      docker.io/excalidraw/excalidraw:latest
+
+    echo -e "${GREEN}--> Aguardando inicialização do servidor web...${NC}"
+    sleep 3
+
+    # Verificação de integridade do contêiner
+    if [[ "$(podman inspect -f '{{.State.Running}}' "$APP_CONTAINER_NAME")" != "true" ]]; then
+        echo -e "${RED}ERRO CRÍTICO: O contêiner '$APP_CONTAINER_NAME' parou de rodar inesperadamente!${NC}"
+        echo -e "${YELLOW}--> Logs do erro:${NC}"
+        podman logs "$APP_CONTAINER_NAME"
+        exit 1
+    fi
+
+    echo -e "${BOLD_GREEN}--> Sucesso! O Excalidraw está operacional.${NC}"
+    echo -e "${YELLOW}--> Excalidraw acessível em http://localhost:8080${NC}"
+    
+    echo -e ""
+    echo -e "${CYAN}Informações de Acesso:${NC}"
+    echo -e "--------------------------------------------------"
+    echo -e "  Host:         127.0.0.1"
+    echo -e "  Porta:        8080"
+    echo -e "  Armazenamento: Local Storage (Navegador)"
+    echo -e "--------------------------------------------------"
+}
+
 install_gnome_extensions() {
     if [[ "$DISTRO" != "fedora" ]]; then
         echo -e "${YELLOW}--> Distribuição '$DISTRO' detectada. Pulando extensões do GNOME (exclusivo para Fedora).${NC}"
@@ -813,6 +861,7 @@ main() {
     # 2. Reset de ambiente para Idempotência
     clean_mariadb_pod
     clean_postgres_pod
+    clean_excalidraw_pod
     
     # 3. Base do Sistema
     update_system
@@ -837,6 +886,7 @@ main() {
     # 7. Infraestrutura (Containers/Pods)
     configure_mariadb_pod
     configure_postgres_pod
+    configure_excalidraw_pod
     
     fastfetch
     print_header "Instalação Concluída!"
