@@ -148,15 +148,16 @@ setup_flatpak() {
         com.spotify.Client
         com.usebruno.Bruno
         com.discordapp.Discord
-        com.github.tchx84.Flatseal
         it.mijorus.gearlever
         com.mattjakeman.ExtensionManager
         com.heroicgameslauncher.hgl
         com.github.PintaProject.Pinta
         app.zen_browser.zen
-        io.github.flattool.Warehouse
         io.podman_desktop.PodmanDesktop
-        net.nokyan.Resources
+        io.missioncenter.MissionCenter
+        com.github.tchx84.Flatseal
+        io.github.flattool.Warehouse
+        io.github.giantpinkrobots.flatsweep
     )
 
     echo -e "${BLUE}--> Instalando aplicativos via Flatpak...${NC}"
