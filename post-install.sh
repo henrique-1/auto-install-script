@@ -733,7 +733,7 @@ configure_excalidraw_pod() {
     
     echo -e "${BLUE}--> Criando o pod '$POD_NAME'...${NC}"
     # O mapeamento de portas ocorre na criação do pod
-    podman pod create --name "$POD_NAME" -p 8080:80
+    podman pod create --name "$POD_NAME" -p 8083:80
 
     echo -e "${BLUE}--> Iniciando o contêiner do Excalidraw ('$APP_CONTAINER_NAME')...${NC}"
     podman run -d --name "$APP_CONTAINER_NAME" --pod "$POD_NAME" \
@@ -751,13 +751,13 @@ configure_excalidraw_pod() {
     fi
 
     echo -e "${BOLD_GREEN}--> Sucesso! O Excalidraw está operacional.${NC}"
-    echo -e "${YELLOW}--> Excalidraw acessível em http://localhost:8080${NC}"
+    echo -e "${YELLOW}--> Excalidraw acessível em http://localhost:8083${NC}"
     
     echo -e ""
     echo -e "${CYAN}Informações de Acesso:${NC}"
     echo -e "--------------------------------------------------"
     echo -e "  Host:         127.0.0.1"
-    echo -e "  Porta:        8080"
+    echo -e "  Porta:        8083"
     echo -e "  Armazenamento: Local Storage (Navegador)"
     echo -e "--------------------------------------------------"
 }
