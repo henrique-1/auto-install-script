@@ -2,10 +2,10 @@
 
 # ===================================================================================
 #
-#          FILE:  post-install.sh
+#       FILE:  post-install.sh
 #   DESCRIPTION:  Script híbrido para Fedora e Pop!_OS / Ubuntu.
-#        AUTHOR:  Henrique Bissoli Malaman Alonso (Refatorado para Multi-Distro)
-#       VERSION:  3.0
+#       AUTHOR:  Henrique Bissoli Malaman Alonso (Refatorado para Multi-Distro)
+#       VERSION:  3.3
 #
 # ===================================================================================
 
@@ -38,7 +38,6 @@ print_header() {
     printf "${CYAN}  %s${NC}\n" "$1"
     printf "${CYAN}======================================================================${NC}\n"
 }
-
 
 pkg_install() {
     if [[ "$DISTRO" == "fedora" ]]; then
@@ -75,6 +74,12 @@ setup_multimedia_and_base_dependencies() {
         echo -e "${BLUE}--> Instalando Java, pacotes multimídia e codecs...${NC}"
         sudo dnf group install -y multimedia
         
+        echo -e "${MAGENTA}--> Substituindo ffmpeg-free pelo ffmpeg completo...${NC}"
+        sudo dnf swap -y ffmpeg-free ffmpeg --allowerasing
+
+        echo -e "${MAGENTA}--> Atualizando codecs adicionais de multimídia...${NC}"
+        sudo dnf update -y @multimedia --setopt="install_weak_deps=False" --exclude=PackageKit-gstreamer-plugin
+        
         pkg_install \
           java-latest-openjdk.x86_64 \
           gstreamer1-plugin-openh264 \
@@ -83,7 +88,7 @@ setup_multimedia_and_base_dependencies() {
           dnf-plugins-core \
           unzip curl wget
     else
-        echo -e "${BLUE}--> Preparando instalação para Pop!_OS...${NC}"
+        echo -e "${BLUE}--> Preparando instalação para Ubuntu / Pop!_OS...${NC}"
         
         echo "ttf-mscorefonts-installer msttcorefonts/accepted-mscorefonts-eula select true" | sudo debconf-set-selections
         
@@ -99,6 +104,47 @@ setup_multimedia_and_base_dependencies() {
           git \
           wget \
           unzip
+    fi
+}
+
+install_gpu_drivers() {
+    print_header "Configurando Drivers de Vídeo e Aceleração"
+
+    if [[ "$DISTRO" == "ubuntu" ]]; then
+        echo -e "${BLUE}--> Instalando drivers da NVIDIA (autoinstall)...${NC}"
+        sudo ubuntu-drivers autoinstall
+
+        echo -e "${BLUE}--> Instalando ferramentas da GPU Intel e utilitários do Mesa...${NC}"
+        sudo apt install -y intel-gpu-tools mesa-utils
+
+        echo -e "${BLUE}--> Adicionando o usuário '$USER' aos grupos 'render' e 'video'...${NC}"
+        sudo groupadd -f render
+        sudo groupadd -f video
+        sudo usermod -aG render "$USER"
+        sudo usermod -aG video "$USER"
+
+        echo -e "${GREEN}--> Drivers de vídeo e permissões configurados com sucesso!${NC}"
+    elif [[ "$DISTRO" == "fedora" ]]; then
+        echo -e "${BLUE}--> Instalando drivers NVIDIA e aceleração de hardware (VA-API/VDPAU)...${NC}"
+        
+        # Agrupando a instalação em uma única transação DNF para eficiência
+        sudo dnf install -y \
+            akmod-nvidia \
+            xorg-x11-drv-nvidia-cuda \
+            vulkan \
+            xorg-x11-drv-nvidia-cuda-libs \
+            libva-nvidia-driver \
+            libva-utils \
+            vdpauinfo \
+            mesa-va-drivers-freeworld
+            
+        echo -e "${BLUE}--> Marcando akmod-nvidia como instalado pelo usuário (previne remoção acidental)...${NC}"
+        sudo dnf mark install akmod-nvidia
+        
+        echo -e "${GREEN}--> Codecs e drivers NVIDIA configurados com sucesso!${NC}"
+        echo -e "${YELLOW}--> NOTA: O módulo do kernel NVIDIA (akmod) será compilado em background. Isso pode levar alguns minutos antes do próximo boot.${NC}"
+    else
+        echo -e "${YELLOW}--> Distribuição '$DISTRO' detectada. A instalação de drivers específicos será ignorada.${NC}"
     fi
 }
 
@@ -167,7 +213,6 @@ setup_flatpak() {
             echo -e "${YELLOW}--> O aplicativo '$app' já está instalado. Pulando.${NC}"
         else
             echo -e "${BLUE}--> Instalando: $app${NC}"
-
             flatpak install -y --system --noninteractive flathub "$app"
         fi
     done
@@ -232,7 +277,7 @@ install_dev_tools() {
         echo -e "${BLUE}--> Atualizando índices do APT...${NC}"
         sudo apt update
 
-        echo -e "${BLUE}--> Instalando pacotes de dev no Pop!_OS...${NC}"
+        echo -e "${BLUE}--> Instalando pacotes de dev...${NC}"
 
         pkg_install code gh docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin podman fastfetch
     fi
@@ -248,7 +293,7 @@ install_web_stack(){
           php php-cli php-fpm php-mysqlnd php-gd php-intl php-mbstring php-pdo \
           php-xml php-pecl-zip php-bcmath php-sodium php-opcache php-devel php-common
     else
-        echo -e "${BLUE}--> Instalando PHP e extensões no Pop!_OS...${NC}"
+        echo -e "${BLUE}--> Instalando PHP e extensões no Ubuntu / Pop!_OS...${NC}"
         pkg_install php php-cli php-fpm php-mysql php-gd php-intl php-mbstring php-xml php-zip php-bcmath php-curl php-sqlite3 php-opcache php-pgsql
     fi
 
@@ -285,7 +330,6 @@ install_web_stack(){
     composer global require laravel/installer
 }
 
-# 6. Instala NVM, Node.js, PHP e Composer
 install_js_stack() {
     print_header "Instalando Node.js e Deno e pnpm"
 
@@ -330,11 +374,9 @@ install_js_stack() {
 install_fonts() {
     print_header "Instalando fontes (JetBrains Mono, Nerd Fonts)"
 
-    # --- Instala Fontes ---
     local DOWNLOAD_DIR="/tmp/fonts-download"
     mkdir -p "$DOWNLOAD_DIR"
 
-    # --- JetBrains Mono (Regular) ---
     local JB_FONT_INSTALL_DIR="/usr/local/share/fonts/JetBrainsMono"
 
     if [ ! -d "$JB_FONT_INSTALL_DIR" ]; then
@@ -354,7 +396,6 @@ install_fonts() {
         echo -e "${YELLOW}--> Fonte JetBrains Mono já está instalada. Pulando.${NC}"
     fi
 
-    # --- JetBrains Mono (Nerd Font) ---
     local NF_FONT_INSTALL_DIR="/usr/local/share/fonts/JetBrainsMonoNF"
 
     if [ ! -d "$JB_FONT_INSTALL_DIR" ]; then
@@ -374,7 +415,6 @@ install_fonts() {
         echo -e "${YELLOW}--> Fonte JetBrains Mono Nerd Font já está instalada. Pulando.${NC}"
     fi
 
-    # --- Configura permissões e atualiza cache de fontes ---
     echo -e "${BLUE}--> Configurando permissões e atualizando o cache de fontes do sistema...${NC}"
     
     if [ -d "$JB_FONT_INSTALL_DIR" ] && [ -d "$NF_FONT_INSTALL_DIR" ]; then
@@ -403,12 +443,10 @@ install_flutter_and_jetbrains() {
             curl git unzip xz-utils zip libglu1-mesa
     fi
 
-    # --- Cria diretórios de trabalho ---
     local DEV_DIR="$HOME/development"
     local DOWNLOAD_DIR="/tmp/dev-downloads"
     mkdir -p "$DEV_DIR" "$DOWNLOAD_DIR"
 
-    # --- Instala Flutter ---
     local FLUTTER_DIR="$DEV_DIR/flutter"
     if [ ! -d "$FLUTTER_DIR" ]; then
         echo -e "${GREEN}--> Baixando o Flutter SDK...${NC}"
@@ -432,10 +470,8 @@ install_flutter_and_jetbrains() {
     fi
     export PATH="$PATH:$HOME/development/flutter/bin"
     
-    # --- Instala JetBrains Toolbox ---
     echo -e "${BLUE}--> Verificando instalação do JetBrains Toolbox...${NC}"
 
-    # 1. Limpeza Preventiva: Remove versões antigas para evitar conflitos
     find "$DEV_DIR" -maxdepth 1 -type d -name "jetbrains-toolbox-*" -exec rm -rf {} +
 
     echo -e "${GREEN}--> Baixando a versão mais recente do JetBrains Toolbox...${NC}"
@@ -447,21 +483,16 @@ install_flutter_and_jetbrains() {
         echo -e "${BLUE}--> Extraindo...${NC}"
         tar -xzf "$JETBRAINS_ARCHIVE" -C "$DEV_DIR"
         
-        # 2. Encontra o diretório base extraído (ex: jetbrains-toolbox-3.2.0.65851)
         local TOOLBOX_DIR=$(find "$DEV_DIR" -maxdepth 1 -type d -name "jetbrains-toolbox-*" | head -n 1)
         
         if [ -d "$TOOLBOX_DIR" ]; then
-            # 3. CORREÇÃO: Busca recursiva pelo executável exato 'jetbrains-toolbox'
-            # Isso vai encontrar o arquivo seja na raiz, seja em /bin, ou qualquer outra subpasta.
             local TOOLBOX_BIN=$(find "$TOOLBOX_DIR" -name "jetbrains-toolbox" -type f | head -n 1)
 
             if [ -f "$TOOLBOX_BIN" ]; then
                 echo -e "${BOLD_GREEN}--> Sucesso! Executável encontrado em: $TOOLBOX_BIN${NC}"
                 
-                # Garante permissão de execução
                 chmod +x "$TOOLBOX_BIN"
                 
-                # Executa em background
                 echo -e "${BLUE}--> Iniciando JetBrains Toolbox...${NC}"
                 nohup "$TOOLBOX_BIN" > /dev/null 2>&1 &
             else
@@ -505,7 +536,6 @@ configure_docker() {
             curl -L "$URL" -o /tmp/docker-install/docker-desktop.rpm
             sudo dnf install -y /tmp/docker-install/docker-desktop.rpm
         else
-            # Versão para Pop!_OS / Ubuntu
             local URL="https://desktop.docker.com/linux/main/amd64/docker-desktop-amd64.deb"
             curl -L "$URL" -o /tmp/docker-install/docker-desktop.deb
             sudo apt update && sudo apt install -y /tmp/docker-install/docker-desktop.deb
@@ -643,7 +673,6 @@ configure_postgres_pod() {
     local DB_CONTAINER="postgres-db"
     local UI_CONTAINER="pgadmin-ui"
     
-    # Credenciais conforme solicitado
     local DB_USER="$USER"
     local DB_PASS="$(date +%s)$(openssl rand -hex 8)"
     local DB_NAME="default_db"
@@ -732,7 +761,6 @@ configure_excalidraw_pod() {
     local APP_CONTAINER_NAME="excalidraw-app"
     
     echo -e "${BLUE}--> Criando o pod '$POD_NAME'...${NC}"
-    # O mapeamento de portas ocorre na criação do pod
     podman pod create --name "$POD_NAME" -p 8083:80
 
     echo -e "${BLUE}--> Iniciando o contêiner do Excalidraw ('$APP_CONTAINER_NAME')...${NC}"
@@ -742,7 +770,6 @@ configure_excalidraw_pod() {
     echo -e "${GREEN}--> Aguardando inicialização do servidor web...${NC}"
     sleep 3
 
-    # Verificação de integridade do contêiner
     if [[ "$(podman inspect -f '{{.State.Running}}' "$APP_CONTAINER_NAME")" != "true" ]]; then
         echo -e "${RED}ERRO CRÍTICO: O contêiner '$APP_CONTAINER_NAME' parou de rodar inesperadamente!${NC}"
         echo -e "${YELLOW}--> Logs do erro:${NC}"
@@ -818,7 +845,6 @@ install_steam() {
     if [[ "$DISTRO" == "fedora" ]]; then
         echo -e "${BLUE}--> Instalando Steam via RPM Fusion (Fedora)...${NC}"
         
-        # Verifica se o repositório nonfree está presente (essencial para Steam no Fedora)
         if ! rpm -q rpmfusion-nonfree-release &> /dev/null; then
             echo -e "${RED}ERRO: Repositório RPM Fusion Non-Free não encontrado.${NC}"
             echo -e "${YELLOW}Certifique-se de que a função 'setup_multimedia_and_base_dependencies' rodou corretamente.${NC}"
@@ -827,10 +853,8 @@ install_steam() {
 
         pkg_install steam mangohud gamemode
     else
-        # Lógica para Pop!_OS / Ubuntu
         echo -e "${BLUE}--> Preparando ambiente Debian-based para Steam...${NC}"
         
-        # Steam exige arquitetura de 32 bits no Ubuntu/Pop
         sudo dpkg --add-architecture i386
         sudo apt update
 
@@ -840,7 +864,6 @@ install_steam() {
             local TEMP_DEB="/tmp/steam.deb"
 
             curl -L "$STEAM_URL" -o "$TEMP_DEB"
-            # O apt install resolve as dependências de 32 bits automaticamente
             sudo apt install -y "$TEMP_DEB" mangohud gamemode
             rm -f "$TEMP_DEB"
         else
@@ -865,8 +888,9 @@ main() {
     
     # 3. Base do Sistema
     update_system
-    setup_multimedia_and_base_dependencies  # Nome sincronizado aqui
-    install_oh_my_bash                      # Instalado antes para preparar o .bashrc
+    setup_multimedia_and_base_dependencies
+    install_gpu_drivers
+    install_oh_my_bash
     
     # 4. Gerenciadores e Repositórios
     setup_flatpak
